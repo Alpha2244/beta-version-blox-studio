@@ -48,55 +48,83 @@ PRIORITY_MODELS = [
 
 STYLE_GUIDE = """
 You are an elite viral short-form story writer and 3D Roblox-style animation director.
-Write a BRAND-NEW, 100% ORIGINAL 45-to-55 second fast-paced first-person story (150 to 185 words total, split across 16 to 20 rapid-fire shots of 8 to 10 words each). Include punchy action sound effects ("boom@0.0", "impact@0.0", "whoosh@0.0") and fast camera moves ("push", "crash_in", "reveal_push") on every major beat.
+Write a BRAND-NEW, 100% ORIGINAL 60-to-75 second fast-paced first-person story (240 to 290 words total, split across 22 to 28 rapid-fire shots of 9 to 12 words each).
 
-STYLE & STRUCTURE INSPIRATION (DO NOT copy any plot, character name, or premise from these examples—invent a completely fresh high-concept world/rule):
-- Pattern: Open immediately with "In this world..." or "In this town..." introducing one bizarre, visual rule that governs daily life, escalate tension rapidly through personal stakes (a countdown, a test, a new law, or an impostor), and land an ironic or chilling twist + a natural viewer-choice/comment hook on the final line.
-- Reference pacing & hook energy (STYLE INSPIRATION ONLY — DO NOT REUSE):
-  1. A town where people can only eat foods starting with their first initial, until the protagonist proves the mayor faked his name.
-  2. A tower where hundreds fall trying to climb a princess's hair, until one boy simply knocks on the unlocked front door.
-  3. A city split into blue and pink sides under a giant balance scale, where opposite color balloons hit one boy simultaneously and create a third purple world.
-  4. A desert world where gold is worthless trash and wet mud is currency, until a heatwave dries the bank vault and a gold roof saves it right before rain ruins mud's value.
-  5. "Copy Night" where lake mimics copy family members until sunrise, ending with a sister hugging the wrong brother because the real one would never yell at her.
+EXACT STORYTELLING STYLE & STRUCTURE (DO NOT copy any plot or character names from the 5 examples below—invent a completely original world rule and twist with the EXACT SAME narrative rhythm):
+1. **Hook & World Rule (Shots 1-4):** Open immediately with "In this world..." or "In this town..." explaining one bizarre, visual rule that controls everyone's survival, status, or family.
+2. **Personal Setup & Escalation (Shots 5-14):** Introduce our protagonist, their contrasting friend/sibling/rival, and a sudden high-stakes test, inspection, midnight curfew, or rule reversal where everyone panics.
+3. **The Clever/Chilling Climax (Shots 15-21):** Show the protagonist using logic, observation, or a hidden loophole when everyone else fails—or uncovering a chilling impostor/trap right before the deadline.
+4. **Ironic Twist & Viewer Hook (Shots 22-26):** End with a sharp final twist in the last 2 shots and a direct question/choice for viewers.
+
+REFERENCE EXAMPLES FOR TONE, TWIST QUALITY & PACING ONLY (INVENT A BRAND NEW STORY):
+- Example A: A town where people can only eat foods starting with their first initial, until the mayor calls an inspection and the boy exposes that the mayor faked his name.
+- Example B: A towering castle where hundreds fall trying to climb a princess's hair, until one boy walks around the back and knocks on the unlocked front door.
+- Example C: A city split into Blue and Pink sides under a giant balance scale, where opposite colored balloons pop on one boy simultaneously and create a third Purple world.
+- Example D: A desert world where gold is worthless trash and wet mud is currency, until a heatwave dries the bank vault and a gold roof saves it right before rain ruins mud's value.
+- Example E: "Copy Night" where lake mimics copy family members until sunrise, ending with a sister hugging the wrong brother because the real one would never yell at her.
+
+STRICT VISUAL & MOTION RULES (CRITICAL — EVERY SHOT MUST SHOW WHAT THE NARRATOR SAYS):
+- **Never leave characters standing still in empty rooms!**
+- Build **2 to 3 custom `places`** packed with props (`table`, `chair`, `door`, `window`, `bed`, `desk`, `shelf`, `lamp`, `tree`, `bush`, `bench`, `fountain`, `fence`, `box`, `crate`, `barrel`, `counter`, `tv`, `rug`) and combine them with built-in sets (`Street`, `TownPool`, `Park`, `Classroom`, `Store`, `Office`, `Kitchen`, `LivingRoom`, `Backyard`).
+- **Active Motion in Every Shot:** Use `walkTo: [x2, y2]` on characters walking/running across scenes, switch animations (`run`, `point`, `shock`, `scared`, `cheer`, `eat`, `angry`, `facepalm`, `think`, `wave`), and attach particle `fx` (`money`, `bolt`, `smoke`, `sparkle`, `glow`, `crumbs`, `drizzle`, `storm`) whenever objects, magic, weather, or money are mentioned!
+- **Dynamic Camera & Lighting:** Change `cam` (`ws` -> `ms` -> `two` -> `cu` -> `low` -> `high` -> `ots`) and `move` (`push`, `crash_in`, `reveal_push`, `drift`) every shot, and shift `mood` (`sunny` -> `storm` -> `night`) as tension rises.
 
 STRICT JSON SCHEMA (return ONLY raw JSON, no markdown):
 {
   "title": "Short catchy title",
   "caption": "Instagram Reels caption with 4 relevant hashtags",
   "keys": ["power_words_to_pop_in_yellow"],
-  "music": [[0, "playful"], [0.55, "suspense"], [0.85, "dark"]],
+  "music": [[0, "playful"], [0.45, "suspense"], [0.80, "dark"]],
   "cast": {
     "HeroName": {
       "skin": [0.92, 0.76, 0.62],
-      "shirt": [0.2, 0.45, 0.85],
-      "pants": [0.18, 0.2, 0.28],
-      "shoes": [0.9, 0.9, 0.9],
+      "shirt": [0.18, 0.48, 0.92],
+      "pants": [0.16, 0.18, 0.26],
+      "shoes": [0.95, 0.95, 0.95],
       "hair": "short",
       "hair_color": [0.15, 0.1, 0.08],
       "height": 1.0
+    },
+    "RivalName": {
+      "skin": [0.85, 0.68, 0.54],
+      "shirt": [0.88, 0.2, 0.22],
+      "pants": [0.15, 0.15, 0.2],
+      "shoes": [0.1, 0.1, 0.1],
+      "hair": "spiky",
+      "hair_color": [0.85, 0.7, 0.2],
+      "height": 1.05,
+      "extras": ["tie"],
+      "tie_color": [0.1, 0.1, 0.1]
     }
   },
   "places": {
-    "CustomRoomName": {
+    "VaultHall": {
       "kind": "room",
-      "wall": "#3a4a6a",
-      "lower": "#1f2638",
+      "wall": "#2c3e50",
+      "lower": "#1a252f",
       "floor": "tiles",
       "light": "warm",
-      "props": [["door", -8, 7.7, 0, {"open": true}], ["table", 10, 5, 0]]
+      "props": [
+        ["door", -8, 7.7, 0, {"open": true}],
+        ["table", 0, 3.5, 0],
+        ["crate", -4.5, 4.0, 15],
+        ["crate", 4.5, 4.0, -15],
+        ["lamp", 6.5, 5.5, 0]
+      ]
     }
   },
   "shots": [
     {
-      "text": "Spoken narration line for this shot (8-10 words).",
-      "set": "Street",
+      "text": "Spoken narration line for this shot (9-12 words).",
+      "set": "VaultHall",
       "cam": "ws",
       "subject": "HeroName",
       "mood": "sunny",
       "move": "push",
       "sfx": ["whoosh@0.0"],
       "actors": [
-        {"who": "HeroName", "at": [-1.5, -0.3], "anim": "talk", "face": "smile", "yaw": 15}
+        {"who": "HeroName", "at": [-3.5, -0.5], "walkTo": [-1.2, -0.2], "anim": "walk", "face": "smile", "yaw": 25},
+        {"who": "RivalName", "at": [2.8, 0.2], "anim": "point", "face": "smug", "yaw": -35, "fx": ["sparkle@0.1"]}
       ]
     }
   ]
@@ -109,9 +137,9 @@ ALLOWED VALUES ONLY:
 - move: "creep", "push", "reveal_push", "crash_in", "drift", "lock"
 - anim: "idle", "talk", "walk", "run", "point", "shrug", "shock", "scared", "cheer", "eat", "cross_arms", "think", "sad", "angry", "wave", "sit", "facepalm"
 - face: "neutral", "smile", "grin", "laugh", "shock", "scared", "sad", "worried", "angry", "smug", "think"
-- sfx (optional): "whoosh@0.0", "pop@0.0", "ding@0.0", "impact@0.0", "boom@0.0", "riser@0.0", "heartbeat@0.0", "tick@0.0", "glitch@0.0", "cash@0.0", "bell@0.0"
-- Keep actors at least 3.0 units apart in `at: [x, y]` with `-6 <= x <= 6` and `-3 <= y <= 2.5`.
-- Vary camera angles (`ws` -> `ms` -> `cu` -> `two` -> `low`) and moods (`sunny` -> `storm` -> `night`) rapidly as tension escalates!
+- fx: "drizzle", "raincloud", "storm", "bigstorm", "bolt", "smoke", "crumbs", "money", "sparkle", "glow"
+- sfx: "whoosh@0.0", "pop@0.0", "ding@0.0", "impact@0.0", "boom@0.0", "riser@0.0", "heartbeat@0.0", "tick@0.0", "glitch@0.0", "cash@0.0", "bell@0.0"
+- Keep actors at least 2.8 units apart in `at: [x, y]` with `-6 <= x <= 6` and `-3 <= y <= 2.5`.
 """
 
 
@@ -138,9 +166,9 @@ def sanitize_spec(raw: dict) -> dict:
         raw_cast = {
             "Narrator": {
                 "skin": [0.92, 0.76, 0.62],
-                "shirt": [0.2, 0.35, 0.75],
+                "shirt": [0.2, 0.45, 0.85],
                 "pants": [0.18, 0.2, 0.28],
-                "shoes": [0.15, 0.15, 0.15],
+                "shoes": [0.9, 0.9, 0.9],
                 "hair": "short",
                 "hair_color": [0.18, 0.12, 0.08],
                 "height": 1.0,
@@ -153,7 +181,7 @@ def sanitize_spec(raw: dict) -> dict:
         look = look if isinstance(look, dict) else {}
         c = {
             "skin": _clamp_rgb(look.get("skin"), [0.92, 0.76, 0.62]),
-            "shirt": _clamp_rgb(look.get("shirt"), [0.25, 0.45, 0.8]),
+            "shirt": _clamp_rgb(look.get("shirt"), [0.25, 0.45, 0.85]),
             "pants": _clamp_rgb(look.get("pants"), [0.2, 0.22, 0.3]),
             "shoes": _clamp_rgb(look.get("shoes"), [0.2, 0.2, 0.2]),
             "hair": look.get("hair") if look.get("hair") in VALID_HAIR else "short",
@@ -193,7 +221,7 @@ def sanitize_spec(raw: dict) -> dict:
     allowed_sets = VALID_SETS | set(places.keys())
 
     raw_shots = raw.get("shots") or []
-    if len(raw_shots) < 6:
+    if len(raw_shots) < 8:
         raise ValueError(f"Too few shots generated: {len(raw_shots)}")
 
     shots = []
@@ -205,7 +233,7 @@ def sanitize_spec(raw: dict) -> dict:
         if not text:
             continue
 
-        est_dur = max(1.1, round(len(text.split()) / 4.4, 2))
+        est_dur = max(1.1, round(len(text.split()) / 4.6, 2))
         t0 = round(t_cursor, 3)
         t1 = round(t0 + est_dur, 3)
         t_cursor = t1
@@ -247,9 +275,10 @@ def sanitize_spec(raw: dict) -> dict:
 
             if act.get("walkTo"):
                 wto = _clamp_xy(act["walkTo"], pos)
-                if math.dist(pos, wto) >= 0.8:
+                if math.dist(pos, wto) >= 0.7:
                     clean_act["walkTo"] = wto
-                    clean_act["anim"] = "walk"
+                    if clean_act["anim"] not in ("walk", "run"):
+                        clean_act["anim"] = "walk"
 
             if isinstance(act.get("fx"), list):
                 clean_fx = []
@@ -304,7 +333,7 @@ def sanitize_spec(raw: dict) -> dict:
         shots.append(clean_shot)
 
     music = []
-    for seg in (raw.get("music") or [[0, "playful"], [0.55, "suspense"], [0.85, "dark"]]):
+    for seg in (raw.get("music") or [[0, "playful"], [0.45, "suspense"], [0.80, "dark"]]):
         if isinstance(seg, (list, tuple)) and len(seg) >= 2:
             pos_val = max(0.0, min(0.95, float(seg[0])))
             m_mood = seg[1] if seg[1] in VALID_MUSIC else "suspense"
@@ -312,7 +341,7 @@ def sanitize_spec(raw: dict) -> dict:
     if not music or music[0][0] != 0:
         music.insert(0, [0, "playful"])
 
-    keys = [re.sub(r"[^a-zA-Z0-9']", "", str(k)).lower() for k in (raw.get("keys") or []) if str(k).strip()][:16]
+    keys = [re.sub(r"[^a-zA-Z0-9']", "", str(k)).lower() for k in (raw.get("keys") or []) if str(k).strip()][:20]
 
     out = {
         "dur": round(t_cursor, 3),
