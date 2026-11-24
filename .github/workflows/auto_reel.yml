@@ -7,6 +7,10 @@ on:
         description: "Optional theme/hook idea (leave blank for random original twist)"
         required: false
         default: ""
+      voice_engine:
+        description: "Voice engine: 'kokoro' (100% FREE unlimited) or 'elevenlabs'"
+        required: false
+        default: "kokoro"
       voice_speed:
         description: "Voice speed (0.70 to 1.20; default 1.20 fast Shorts pacing)"
         required: false
@@ -36,13 +40,13 @@ jobs:
         with:
           python-version: "3.11"
 
-      - name: Install Numpy, Scipy & Pillow
-        run: pip install -q "numpy>=1.26.0" "scipy>=1.11.0" "Pillow>=10.0.0"
+      - name: Install Numpy, Scipy, Pillow & Kokoro TTS
+        run: pip install -q "numpy>=1.26.0" "scipy>=1.11.0" "Pillow>=10.0.0" kokoro soundfile
 
       - name: 3. Install Headless Display, Audio & Mesa OpenGL Drivers
         run: |
           sudo apt-get update -qq
-          sudo apt-get install -y -qq xvfb ffmpeg libgl1-mesa-dri libgl1 libegl1 libxrender1 libxi6 libxkbcommon0 libsm6
+          sudo apt-get install -y -qq xvfb ffmpeg libgl1-mesa-dri libgl1 libegl1 libxrender1 libxi6 libxkbcommon0 libsm6 espeak-ng
 
       - name: 4. Cache & Install Blender 5.2
         id: cache-blender
@@ -82,33 +86,31 @@ jobs:
           echo "PROJ_DIR=$PROJ_DIR" >> $GITHUB_ENV
           python auto/generate_story.py "$PROJ_DIR"
 
-      - name: 6. Synthesize Fast ElevenLabs Voice & Word Timestamps
+      - name: 6. Synthesize Voice & Word Timestamps (Kokoro Free or ElevenLabs)
         env:
+          VOICE_ENGINE: ${{ github.event.inputs.voice_engine || 'kokoro' }}
           ELEVENLABS_API_KEY: ${{ secrets.ELEVENLABS_API_KEY }}
           ELEVENLABS_VOICE_ID: ${{ secrets.ELEVENLABS_VOICE_ID }}
           VOICE_SPEED: ${{ github.event.inputs.voice_speed || '1.20' }}
         run: |
           python auto/elevenlabs_voice.py "$PROJ_DIR"
 
-      - name: 7. Compile 3D Scene & Optimize EEVEE for CPU Rendering
+      - name: 7. Compile 3D Scene & Configure Fast CPU Workbench Engine
         run: |
           python kit/run.py "$PROJ_DIR" compile
           cat << 'EOF' > /tmp/cpu_opt.py
           import bpy
           s = bpy.context.scene
-          s.render.resolution_percentage = 75
-          if hasattr(s, "eevee"):
-              s.eevee.taa_render_samples = 4
-              if hasattr(s.eevee, "use_raytracing"):
-                  s.eevee.use_raytracing = False
-              if hasattr(s.eevee, "use_shadows"):
-                  s.eevee.use_shadows = True
-              if hasattr(s.eevee, "shadow_ray_count"):
-                  s.eevee.shadow_ray_count = 1
-              if hasattr(s.eevee, "shadow_step_count"):
-                  s.eevee.shadow_step_count = 4
+          s.render.engine = "BLENDER_WORKBENCH"
+          s.render.resolution_percentage = 100
+          s.display.shading.light = "STUDIO"
+          s.display.shading.color_type = "MATERIAL"
+          s.display.shading.show_shadows = True
+          s.display.shading.shadow_intensity = 0.45
+          s.display.shading.show_cavity = True
+          s.display.shading.cavity_type = "BOTH"
           bpy.ops.wm.save_mainfile()
-          print("[Optimize] Applied CPU-fast EEVEE settings (75% res, 4 samples, raytracing=False)")
+          print("[Optimize] Switched to BLENDER_WORKBENCH (Material colors + Studio shadows, full 1080x1920)")
           EOF
           $BLENDER -b "$PROJ_DIR/scene.blend" --python /tmp/cpu_opt.py
 
@@ -123,15 +125,14 @@ jobs:
           frames_dir = os.path.join(ep, "frames")
           os.makedirs(frames_dir, exist_ok=True)
 
-          # Use 1 worker using all 4 CPU threads via llvmpipe (avoids duplicate shader compiles)
-          print(f"[Render] Rendering {total} frames ({dur:.2f}s @ 30fps) with full-CPU llvmpipe...", flush=True)
+          print(f"[Render] Rendering {total} frames ({dur:.2f}s @ 30fps) with BLENDER_WORKBENCH...", flush=True)
 
           def run_pass(cmd, label):
               proc = subprocess.Popen(cmd)
               start_t = time.time()
               last_count = sum(1 for f in os.listdir(frames_dir) if f.endswith(".jpg"))
               last_progress_t = start_t
-              STALL_LIMIT_SEC = 360
+              STALL_LIMIT_SEC = 240
 
               while proc.poll() is None:
                   time.sleep(20)
@@ -146,7 +147,7 @@ jobs:
                   pct = (done / max(total, 1)) * 100.0
                   fpm = (done / max(elapsed, 1.0)) * 60.0
                   rem = max(0, total - done)
-                  eta_str = f"{rem / fpm:.1f}m" if fpm > 0 else "compiling shaders..."
+                  eta_str = f"{rem / fpm:.1f}m" if fpm > 0 else "warming up..."
                   idle_sec = int(now - last_progress_t)
 
                   print(
