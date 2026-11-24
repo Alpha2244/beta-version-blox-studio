@@ -98,11 +98,26 @@ jobs:
 
       - name: 7. Compile 3D Scene & Bake Full Colors for Fast Workbench CPU Render
         run: |
-          python kit/run.py "$PROJ_DIR" compile
+          if ! python kit/run.py "$PROJ_DIR" compile; then
+            echo "[WARN] Compile failed with custom places; falling back to verified built-in sets and retrying..."
+            python - << 'EOF'
+          import json, os
+          p = os.path.join(os.environ["PROJ_DIR"], "timed.json")
+          d = json.load(open(p))
+          d.pop("places", None)
+          d.pop("things", None)
+          valid_sets = {"Street","Kitchen","Gym","MusicRow","TownPool","Bedroom","Hallway","Classroom","LivingRoom","Store","Office","Bathroom","Park","Backyard","Playground"}
+          for idx, sh in enumerate(d.get("shots", [])):
+              if sh.get("set") not in valid_sets:
+                  sh["set"] = ["Street","Park","Classroom","Store","Office","LivingRoom"][idx % 6]
+          json.dump(d, open(p, "w"), indent=2)
+          EOF
+            python kit/run.py "$PROJ_DIR" compile
+          fi
+
           cat << 'EOF' > /tmp/cpu_opt.py
           import bpy
 
-          # Copy Principled BSDF Base Color onto mat.diffuse_color so BLENDER_WORKBENCH renders full vibrant colors!
           colored_count = 0
           for mat in bpy.data.materials:
               if mat.use_nodes and mat.node_tree:
@@ -117,7 +132,7 @@ jobs:
 
           s = bpy.context.scene
           s.render.engine = "BLENDER_WORKBENCH"
-          s.render.resolution_percentage = 100
+          s.render.resolution_percentage = 75
           s.display.shading.light = "STUDIO"
           s.display.shading.color_type = "MATERIAL"
           s.display.shading.show_shadows = True
@@ -125,7 +140,7 @@ jobs:
           s.display.shading.show_cavity = True
           s.display.shading.cavity_type = "BOTH"
           bpy.ops.wm.save_mainfile()
-          print(f"[Optimize] Baked vibrant colors onto {colored_count} materials for BLENDER_WORKBENCH")
+          print(f"[Optimize] Baked vibrant colors onto {colored_count} materials (75% res fast Workbench)")
           EOF
           $BLENDER -b "$PROJ_DIR/scene.blend" --python /tmp/cpu_opt.py
 
@@ -204,7 +219,6 @@ jobs:
           post_file = "kit/blox/post.py"
           with open(post_file, "r", encoding="utf-8") as f:
               src = f.read()
-          # Remove "BETA VERSION" top-right badge and the blue "β." caption watermark
           src = src.replace('"BETA VERSION"', '""')
           src = re.sub(r'draw\.text\(\s*\([^)]*?\),\s*"β\."[^)]*\)', 'pass', src)
           src = src.replace('"β."', '""')
