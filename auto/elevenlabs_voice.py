@@ -1,7 +1,9 @@
 import base64
+import hashlib
 import json
 import os
 import re
+import subprocess
 import sys
 import time
 import urllib.error
@@ -108,14 +110,42 @@ def synthesize_line(api_key: str, voice_id: str, text: str):
     raise RuntimeError(f"ElevenLabs TTS failed for '{text[:40]}...': {last_err}")
 
 
+def run_free_kokoro(project_dir: str):
+    print("[Voice] Using 100% FREE Kokoro offline TTS (0 ElevenLabs credits used)...", flush=True)
+    subprocess.run([sys.executable, "kit/run.py", project_dir, "voice"], check=True)
+
+
 def main(project_dir: str):
+    engine = os.environ.get("VOICE_ENGINE", "kokoro").strip().lower()
+    if engine == "kokoro":
+        run_free_kokoro(project_dir)
+        return
+
     api_key = os.environ.get("ELEVENLABS_API_KEY", "").strip()
     voice_id = os.environ.get("ELEVENLABS_VOICE_ID", "").strip()
     if not api_key or not voice_id:
-        sys.exit("ERROR: ELEVENLABS_API_KEY and ELEVENLABS_VOICE_ID must both be set in GitHub Secrets.")
+        print("[WARN] ElevenLabs secrets missing -> falling back to free Kokoro TTS.", flush=True)
+        run_free_kokoro(project_dir)
+        return
 
     tp = os.path.join(project_dir, "timed.json")
     spec = json.load(open(tp, encoding="utf-8"))
+
+    # Check local/cached audio backup first so retries NEVER spend extra credits
+    cache_root = os.path.expanduser("~/.cache/blox_tts_cache")
+    os.makedirs(cache_root, exist_ok=True)
+    story_sig = hashlib.sha256(
+        json.dumps([spoken(s["text"]) for s in spec["shots"]] + [voice_id, VOICE_SPEED]).encode("utf-8")
+    ).hexdigest()[:16]
+    cached_dir = os.path.join(cache_root, story_sig)
+
+    if os.path.exists(os.path.join(cached_dir, "vo.wav")) and os.path.exists(os.path.join(cached_dir, "words.json")):
+        import shutil
+        shutil.copy2(os.path.join(cached_dir, "vo.wav"), os.path.join(project_dir, "vo.wav"))
+        shutil.copy2(os.path.join(cached_dir, "words.json"), os.path.join(project_dir, "words.json"))
+        shutil.copy2(os.path.join(cached_dir, "timed.json"), tp)
+        print(f"[ElevenLabs] Reused cached voiceover ({story_sig}) -> 0 credits spent!", flush=True)
+        return
 
     lines = []
     for i, s in enumerate(spec["shots"]):
@@ -153,11 +183,20 @@ def main(project_dir: str):
     pk = float(np.abs(total).max() or 1.0)
     total = total / pk * 0.89
 
-    wavfile.write(os.path.join(project_dir, "vo.wav"), SR, (total * 32767).astype(np.int16))
-    with open(os.path.join(project_dir, "words.json"), "w", encoding="utf-8") as f:
+    vo_path = os.path.join(project_dir, "vo.wav")
+    words_path = os.path.join(project_dir, "words.json")
+    wavfile.write(vo_path, SR, (total * 32767).astype(np.int16))
+    with open(words_path, "w", encoding="utf-8") as f:
         json.dump(all_words, f)
     with open(tp, "w", encoding="utf-8") as f:
         json.dump(spec, f, indent=2)
+
+    # Save backup into cache immediately
+    import shutil
+    os.makedirs(cached_dir, exist_ok=True)
+    shutil.copy2(vo_path, os.path.join(cached_dir, "vo.wav"))
+    shutil.copy2(words_path, os.path.join(cached_dir, "words.json"))
+    shutil.copy2(tp, os.path.join(cached_dir, "timed.json"))
 
     kokoro_flag = os.path.join(project_dir, ".voice_kokoro")
     if os.path.exists(kokoro_flag):
