@@ -7,6 +7,10 @@ on:
         description: "Optional theme/hook idea (leave blank for random original twist)"
         required: false
         default: ""
+      voice_speed:
+        description: "Voice speed (0.70 to 1.20; default 1.20 fast Shorts pacing)"
+        required: false
+        default: "1.20"
   schedule:
     # Runs daily at 14:00 UTC (7:00 PM PKT)
     - cron: "0 14 * * *"
@@ -67,7 +71,7 @@ jobs:
           sudo chmod +x /usr/local/bin/blender_headless
           echo "BLENDER=/usr/local/bin/blender_headless" >> $GITHUB_ENV
 
-      - name: 5. Generate Original Story & Validated Shot List (Gemini Cascade)
+      - name: 5. Generate Original Fast-Paced Story & Shot List (Gemini Cascade)
         env:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           STORY_THEME: ${{ github.event.inputs.story_theme }}
@@ -78,10 +82,11 @@ jobs:
           echo "PROJ_DIR=$PROJ_DIR" >> $GITHUB_ENV
           python auto/generate_story.py "$PROJ_DIR"
 
-      - name: 6. Synthesize ElevenLabs Voice & Word Timestamps
+      - name: 6. Synthesize Fast ElevenLabs Voice & Word Timestamps
         env:
           ELEVENLABS_API_KEY: ${{ secrets.ELEVENLABS_API_KEY }}
           ELEVENLABS_VOICE_ID: ${{ secrets.ELEVENLABS_VOICE_ID }}
+          VOICE_SPEED: ${{ github.event.inputs.voice_speed || '1.20' }}
         run: |
           python auto/elevenlabs_voice.py "$PROJ_DIR"
 
