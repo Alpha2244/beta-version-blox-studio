@@ -10,7 +10,6 @@ import numpy as np
 from scipy.io import wavfile
 
 SR = 24000
-# Tight back-to-back sentence spacing (eliminates slow dead air between cuts)
 PAD_IN = 0.02
 PAD_OUT = 0.05
 VOICE_SPEED = float(os.environ.get("VOICE_SPEED", "1.20"))
@@ -80,7 +79,6 @@ def synthesize_line(api_key: str, voice_id: str, text: str):
             audio_bytes = base64.b64decode(data["audio_base64"])
             samples = np.frombuffer(audio_bytes, dtype=np.int16).astype(np.float32) / 32768.0
 
-            # Trim trailing silence so the next shot cuts immediately
             nonzero = np.nonzero(np.abs(samples) > 0.01)[0]
             if len(nonzero):
                 end_idx = min(len(samples), int(nonzero[-1]) + int(0.03 * SR))
@@ -129,7 +127,6 @@ def main(project_dir: str):
         lines.append((audio, words))
         print(f"  [TTS {i:02d}] {len(audio)/SR:5.2f}s | {txt[:55]}", flush=True)
 
-    # Fit each shot tightly to its spoken line so cuts happen rapidly
     t, moved = 0.0, 0
     for s, ln in zip(spec["shots"], lines):
         need = (PAD_IN + len(ln[0]) / SR + PAD_OUT) if ln else 1.0
