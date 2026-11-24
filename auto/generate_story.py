@@ -48,10 +48,10 @@ PRIORITY_MODELS = [
 
 STYLE_GUIDE = """
 You are an elite viral short-form story writer and 3D Roblox-style animation director.
-Write a BRAND-NEW, 100% ORIGINAL 45-to-60 second first-person story (130 to 165 words total, split across 14 to 18 punchy shots).
+Write a BRAND-NEW, 100% ORIGINAL 55-to-70 second fast-paced first-person story (230 to 280 words total, split across 22 to 28 rapid-fire shots of 8 to 12 words each). Include punchy action sound effects ("boom@0.0", "impact@0.0", "whoosh@0.0") and fast camera moves ("push", "crash_in", "reveal_push") on every major beat.
 
 STYLE & STRUCTURE INSPIRATION (DO NOT copy any plot, character name, or premise from these examples—invent a completely fresh high-concept world/rule):
-- Pattern: Open immediately with "In this world..." or "In this town..." introducing one bizarre, visual rule that governs daily life, escalate tension through personal stakes (a countdown, a test, a new law, or an impostor), and land an ironic or chilling twist + a natural viewer-choice/comment hook on the final line.
+- Pattern: Open immediately with "In this world..." or "In this town..." introducing one bizarre, visual rule that governs daily life, escalate tension rapidly through personal stakes (a countdown, a test, a new law, or an impostor), and land an ironic or chilling twist + a natural viewer-choice/comment hook on the final line.
 - Reference pacing & hook energy (STYLE INSPIRATION ONLY — DO NOT REUSE):
   1. A town where people can only eat foods starting with their first initial, until the protagonist proves the mayor faked his name.
   2. A tower where hundreds fall trying to climb a princess's hair, until one boy simply knocks on the unlocked front door.
@@ -93,7 +93,7 @@ STRICT JSON SCHEMA (return ONLY raw JSON, no markdown):
       "cam": "ws",
       "subject": "HeroName",
       "mood": "sunny",
-      "move": "creep",
+      "move": "push",
       "sfx": ["whoosh@0.0"],
       "actors": [
         {"who": "HeroName", "at": [-1.5, -0.3], "anim": "talk", "face": "smile", "yaw": 15}
@@ -109,9 +109,9 @@ ALLOWED VALUES ONLY:
 - move: "creep", "push", "reveal_push", "crash_in", "drift", "lock"
 - anim: "idle", "talk", "walk", "run", "point", "shrug", "shock", "scared", "cheer", "eat", "cross_arms", "think", "sad", "angry", "wave", "sit", "facepalm"
 - face: "neutral", "smile", "grin", "laugh", "shock", "scared", "sad", "worried", "angry", "smug", "think"
-- sfx (optional): "whoosh@0.0", "pop@0.1", "ding@0.1", "impact@0.2", "boom@0.1", "riser@0.0", "heartbeat@0.0", "tick@0.0", "glitch@0.1", "cash@0.1", "bell@0.1"
+- sfx (optional): "whoosh@0.0", "pop@0.0", "ding@0.0", "impact@0.0", "boom@0.0", "riser@0.0", "heartbeat@0.0", "tick@0.0", "glitch@0.0", "cash@0.0", "bell@0.0"
 - Keep actors at least 3.0 units apart in `at: [x, y]` with `-6 <= x <= 6` and `-3 <= y <= 2.5`.
-- Vary camera angles (`ws` -> `ms` -> `cu` -> `two` -> `low`) and moods (`sunny` -> `storm` -> `night`) as tension escalates!
+- Vary camera angles (`ws` -> `ms` -> `cu` -> `two` -> `low`) and moods (`sunny` -> `storm` -> `night`) rapidly as tension escalates!
 """
 
 
@@ -193,7 +193,7 @@ def sanitize_spec(raw: dict) -> dict:
     allowed_sets = VALID_SETS | set(places.keys())
 
     raw_shots = raw.get("shots") or []
-    if len(raw_shots) < 4:
+    if len(raw_shots) < 6:
         raise ValueError(f"Too few shots generated: {len(raw_shots)}")
 
     shots = []
@@ -205,7 +205,8 @@ def sanitize_spec(raw: dict) -> dict:
         if not text:
             continue
 
-        est_dur = max(1.6, round(len(text.split()) / 2.5, 2))
+        # Fast Shorts pacing (~4.4 words/sec, minimum 1.1s per visual cut)
+        est_dur = max(1.1, round(len(text.split()) / 4.4, 2))
         t0 = round(t_cursor, 3)
         t1 = round(t0 + est_dur, 3)
         t_cursor = t1
@@ -213,7 +214,7 @@ def sanitize_spec(raw: dict) -> dict:
         s_set = sh.get("set") if sh.get("set") in allowed_sets else "Street"
         cam = sh.get("cam") if sh.get("cam") in VALID_CAMS else ("ws" if idx == 0 else "ms")
         mood = sh.get("mood") if sh.get("mood") in VALID_MOODS else "sunny"
-        move = sh.get("move") if sh.get("move") in VALID_MOVES else "creep"
+        move = sh.get("move") if sh.get("move") in VALID_MOVES else "push"
 
         raw_actors = sh.get("actors") or []
         actors = []
@@ -287,7 +288,7 @@ def sanitize_spec(raw: dict) -> dict:
             clean_shot["aimUp"] = True
         if sh.get("flash") is True:
             clean_shot["flash"] = True
-            clean_shot["impact"] = round(float(sh.get("impact", 0.25)), 2)
+            clean_shot["impact"] = round(float(sh.get("impact", 0.2)), 2)
 
         if isinstance(sh.get("sfx"), list):
             clean_sfx = []
@@ -304,7 +305,7 @@ def sanitize_spec(raw: dict) -> dict:
         shots.append(clean_shot)
 
     music = []
-    for seg in (raw.get("music") or [[0, "playful"], [0.6, "suspense"], [0.85, "dark"]]):
+    for seg in (raw.get("music") or [[0, "playful"], [0.55, "suspense"], [0.85, "dark"]]):
         if isinstance(seg, (list, tuple)) and len(seg) >= 2:
             pos_val = max(0.0, min(0.95, float(seg[0])))
             m_mood = seg[1] if seg[1] in VALID_MUSIC else "suspense"
@@ -312,7 +313,7 @@ def sanitize_spec(raw: dict) -> dict:
     if not music or music[0][0] != 0:
         music.insert(0, [0, "playful"])
 
-    keys = [re.sub(r"[^a-zA-Z0-9']", "", str(k)).lower() for k in (raw.get("keys") or []) if str(k).strip()][:12]
+    keys = [re.sub(r"[^a-zA-Z0-9']", "", str(k)).lower() for k in (raw.get("keys") or []) if str(k).strip()][:16]
 
     out = {
         "dur": round(t_cursor, 3),
