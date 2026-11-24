@@ -18,7 +18,8 @@ def normalize_word(w: str) -> str:
     return re.sub(r"[^a-z0-9']", "", w.lower())
 
 
-def chars_to_words(chars: list[str], starts: list[float], ends: list[float]) -> list[dict]:
+def chars_to_words(chars: list[str], starts: list[float], ends: list[float]) -> list[list]:
+    """Returns [[word, t0, t1], ...] matching compile.py & post.py words.json schema."""
     words = []
     buf = []
     w_start = None
@@ -27,7 +28,7 @@ def chars_to_words(chars: list[str], starts: list[float], ends: list[float]) -> 
     for ch, st, en in zip(chars, starts, ends):
         if ch.isspace():
             if buf:
-                words.append({"w": "".join(buf), "t0": round(w_start, 3), "t1": round(w_end, 3)})
+                words.append(["".join(buf), round(w_start, 3), round(w_end, 3)])
                 buf = []
                 w_start = None
                 w_end = None
@@ -38,13 +39,13 @@ def chars_to_words(chars: list[str], starts: list[float], ends: list[float]) -> 
             buf.append(ch)
 
     if buf:
-        words.append({"w": "".join(buf), "t0": round(w_start, 3), "t1": round(w_end, 3)})
+        words.append(["".join(buf), round(w_start, 3), round(w_end, 3)])
     return words
 
 
-def call_elevenlabs_tts(api_key: str, voice_id: str, text: str, speed: float) -> tuple[bytes, list[dict]]:
+def call_elevenlabs_tts(api_key: str, voice_id: str, text: str, speed: float) -> tuple[bytes, list[list]]:
     os.makedirs(CACHE_DIR, exist_ok=True)
-    cache_key = hashlib.sha256(f"el|{voice_id}|{speed}|{text}".encode("utf-8")).hexdigest()[:24]
+    cache_key = hashlib.sha256(f"el_v2|{voice_id}|{speed}|{text}".encode("utf-8")).hexdigest()[:24]
     cached_mp3 = os.path.join(CACHE_DIR, f"{cache_key}.mp3")
     cached_words = os.path.join(CACHE_DIR, f"{cache_key}.json")
 
@@ -104,7 +105,7 @@ def call_elevenlabs_tts(api_key: str, voice_id: str, text: str, speed: float) ->
     return audio_bytes, words
 
 
-def generate_with_kokoro(text: str, raw_mp3: str) -> list[dict]:
+def generate_with_kokoro(text: str, raw_wav: str) -> list[list]:
     import numpy as np
     import soundfile as sf
     from kokoro import KPipeline
@@ -128,52 +129,31 @@ def generate_with_kokoro(text: str, raw_mp3: str) -> list[dict]:
         if seg_words:
             step = seg_dur / len(seg_words)
             for i, w in enumerate(seg_words):
-                words.append({
-                    "w": w,
-                    "t0": round(t_offset + i * step, 3),
-                    "t1": round(t_offset + (i + 1) * step, 3),
-                })
+                words.append([
+                    w,
+                    round(t_offset + i * step, 3),
+                    round(t_offset + (i + 1) * step, 3),
+                ])
         t_offset += seg_dur
 
     full_audio = np.concatenate(chunks) if chunks else np.zeros(sr, dtype=np.float32)
-    tmp_wav = raw_mp3 + ".wav"
-    sf.write(tmp_wav, full_audio, sr)
-    subprocess.run(
-        ["ffmpeg", "-y", "-i", tmp_wav, "-codec:a", "libmp3lame", "-b:a", "192k", raw_mp3],
-        check=True,
-        stdout=subprocess.DEVNULL,
-        stderr=subprocess.DEVNULL,
-    )
-    os.remove(tmp_wav)
+    sf.write(raw_wav, full_audio, sr)
     return words
 
 
-def apply_fast_tempo(raw_mp3: str, final_mp3: str, words: list[dict], tempo: float) -> list[dict]:
+def apply_fast_tempo_to_wav(raw_media: str, vo_wav: str, words: list[list], tempo: float) -> list[list]:
+    """Outputs 48kHz mono PCM vo.wav (exact file post.py expects) with pitch-preserved fast tempo."""
+    cmd = ["ffmpeg", "-y", "-i", raw_media]
+    if tempo > 1.01:
+        cmd += ["-filter:a", f"atempo={tempo:.3f}"]
+    cmd += ["-ac", "1", "-ar", "48000", "-c:a", "pcm_s16le", vo_wav]
+    subprocess.run(cmd, check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    if os.path.exists(raw_media):
+        os.remove(raw_media)
+
     if tempo <= 1.01:
-        shutil.move(raw_mp3, final_mp3)
         return words
-
-    subprocess.run(
-        [
-            "ffmpeg", "-y", "-i", raw_mp3,
-            "-filter:a", f"atempo={tempo:.3f}",
-            "-codec:a", "libmp3lame", "-b:a", "192k",
-            final_mp3,
-        ],
-        check=True,
-        stdout=subprocess.DEVNULL,
-        stderr=subprocess.DEVNULL,
-    )
-    os.remove(raw_mp3)
-
-    scaled = []
-    for w in words:
-        scaled.append({
-            "w": w["w"],
-            "t0": round(w["t0"] / tempo, 3),
-            "t1": round(w["t1"] / tempo, 3),
-        })
-    return scaled
+    return [[w, round(s / tempo, 3), round(e / tempo, 3)] for w, s, e in words]
 
 
 def probe_duration(media_path: str) -> float:
@@ -189,7 +169,7 @@ def probe_duration(media_path: str) -> float:
     return float(out)
 
 
-def align_shots_to_words(shots: list[dict], words: list[dict], total_dur: float) -> list[dict]:
+def align_shots_to_words(shots: list[dict], words: list[list], total_dur: float) -> list[dict]:
     w_cursor = 0
     n_words = len(words)
     aligned = []
@@ -199,9 +179,9 @@ def align_shots_to_words(shots: list[dict], words: list[dict], total_dur: float)
         count = max(1, len(shot_tokens))
 
         if w_cursor < n_words:
-            start_t = words[w_cursor]["t0"] if idx > 0 else 0.0
+            start_t = words[w_cursor][1] if idx > 0 else 0.0
             end_idx = min(n_words - 1, w_cursor + count - 1)
-            end_t = words[end_idx]["t1"]
+            end_t = words[end_idx][2]
             w_cursor = end_idx + 1
         else:
             start_t = aligned[-1]["t1"] if aligned else 0.0
@@ -227,16 +207,16 @@ def align_shots_to_words(shots: list[dict], words: list[dict], total_dur: float)
 
 def main(project_dir: str):
     timed_path = os.path.join(project_dir, "timed.json")
+    words_path = os.path.join(project_dir, "words.json")
+    vo_wav = os.path.join(project_dir, "vo.wav")
+
     with open(timed_path, "r", encoding="utf-8") as f:
         spec = json.load(f)
 
     shots = spec["shots"]
     full_text = " ".join(sh["text"].strip() for sh in shots)
     engine = os.environ.get("VOICE_ENGINE", "kokoro").strip().lower()
-    tempo = max(1.0, min(1.65, float(os.environ.get("VOICE_TEMPO", "1.42"))))
-
-    raw_mp3 = os.path.join(project_dir, "voice_raw.mp3")
-    voice_mp3 = os.path.join(project_dir, "voice.mp3")
+    tempo = max(1.0, min(1.65, float(os.environ.get("VOICE_TEMPO", "1.45"))))
 
     if engine == "elevenlabs":
         api_key = os.environ.get("ELEVENLABS_API_KEY", "").strip()
@@ -246,22 +226,27 @@ def main(project_dir: str):
         speed = max(0.70, min(1.20, float(os.environ.get("VOICE_SPEED", "1.20"))))
         print(f"[ElevenLabs] Synthesizing {len(full_text)} chars with voice={voice_id}, speed={speed}...", flush=True)
         audio_bytes, words = call_elevenlabs_tts(api_key, voice_id, full_text, speed)
-        with open(raw_mp3, "wb") as f:
+        raw_media = os.path.join(project_dir, "voice_raw.mp3")
+        with open(raw_media, "wb") as f:
             f.write(audio_bytes)
     else:
-        words = generate_with_kokoro(full_text, raw_mp3)
+        raw_media = os.path.join(project_dir, "voice_raw.wav")
+        words = generate_with_kokoro(full_text, raw_media)
 
-    words = apply_fast_tempo(raw_mp3, voice_mp3, words, tempo)
-    audio_dur = round(probe_duration(voice_mp3), 3)
-    spec["words"] = words
+    words = apply_fast_tempo_to_wav(raw_media, vo_wav, words, tempo)
+    audio_dur = round(probe_duration(vo_wav), 3)
+
+    # Write words.json in exact [[word, start, end], ...] format required by compile.py & post.py
+    with open(words_path, "w", encoding="utf-8") as f:
+        json.dump(words, f, indent=2)
+
     spec["shots"] = align_shots_to_words(shots, words, audio_dur)
     spec["dur"] = audio_dur
-
     with open(timed_path, "w", encoding="utf-8") as f:
         json.dump(spec, f, indent=2)
 
     wps = len(words) / max(audio_dur, 0.1)
-    print(f"[TTS] DONE ({engine} @ {tempo}x): {len(words)} words in {audio_dur}s ({wps:.2f} words/sec).", flush=True)
+    print(f"[TTS] DONE ({engine} @ {tempo}x): wrote vo.wav + words.json ({len(words)} words, {audio_dur}s, {wps:.2f} words/sec).", flush=True)
 
 
 if __name__ == "__main__":
