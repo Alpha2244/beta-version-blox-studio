@@ -1,0 +1,143 @@
+name: Auto Generate & Render Blox Reel
+
+on:
+  workflow_dispatch:
+    inputs:
+      story_theme:
+        description: "Optional theme/hook idea (leave blank for random original twist)"
+        required: false
+        default: ""
+  schedule:
+    # Runs daily at 14:00 UTC (7:00 PM PKT)
+    - cron: "0 14 * * *"
+
+permissions:
+  contents: write
+
+env:
+  ENABLE_IG_UPLOAD: "false"
+  BLENDER_VERSION: "5.2.0"
+
+jobs:
+  render-reel:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+
+    steps:
+      - name: 1. Checkout Forked Blox Studio Repo
+        uses: actions/checkout@v4
+
+      - name: 2. Setup Python 3.11 & Core Deps
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install Numpy, Scipy & Pillow
+        run: pip install -q "numpy>=1.26.0" "scipy>=1.11.0" "Pillow>=10.0.0"
+
+      - name: 3. Install Headless Display, Audio & Mesa OpenGL Drivers
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq xvfb ffmpeg libgl1-mesa-dri libgl1 libegl1 libxrender1 libxi6 libxkbcommon0 libsm6
+
+      - name: 4. Cache & Install Blender 5.2
+        id: cache-blender
+        uses: actions/cache@v4
+        with:
+          path: ~/blender
+          key: blender-${{ env.BLENDER_VERSION }}-linux-x64
+
+      - name: Download Blender 5.2 (if not cached)
+        if: steps.cache-blender.outputs.cache-hit != 'true'
+        run: |
+          wget -q "https://download.blender.org/release/Blender5.2/blender-${{ env.BLENDER_VERSION }}-linux-x64.tar.xz" -O /tmp/blender.tar.xz
+          mkdir -p ~/blender
+          tar -xf /tmp/blender.tar.xz -C ~/blender --strip-components=1
+          rm -f /tmp/blender.tar.xz
+
+      - name: Configure Headless Software-GL Blender Wrapper
+        run: |
+          sudo tee /usr/local/bin/blender_headless > /dev/null << 'EOF'
+          #!/bin/bash
+          export LIBGL_ALWAYS_SOFTWARE=1
+          export MESA_GL_VERSION_OVERRIDE=4.5
+          export GALLIUM_DRIVER=llvmpipe
+          exec xvfb-run -a -s "-screen 0 1280x720x24" "$HOME/blender/blender" "$@"
+          EOF
+          sudo chmod +x /usr/local/bin/blender_headless
+          echo "BLENDER=/usr/local/bin/blender_headless" >> $GITHUB_ENV
+
+      - name: 5. Generate Original Story & Validated Shot List (Gemini Cascade)
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          STORY_THEME: ${{ github.event.inputs.story_theme }}
+        run: |
+          RUN_ID="reel_$(date -u +%Y%m%d_%H%M%S)"
+          PROJ_DIR="$PWD/kit/projects/$RUN_ID"
+          echo "RUN_ID=$RUN_ID" >> $GITHUB_ENV
+          echo "PROJ_DIR=$PROJ_DIR" >> $GITHUB_ENV
+          python auto/generate_story.py "$PROJ_DIR"
+
+      - name: 6. Synthesize ElevenLabs Voice & Word Timestamps
+        env:
+          ELEVENLABS_API_KEY: ${{ secrets.ELEVENLABS_API_KEY }}
+          ELEVENLABS_VOICE_ID: ${{ secrets.ELEVENLABS_VOICE_ID }}
+        run: |
+          python auto/elevenlabs_voice.py "$PROJ_DIR"
+
+      - name: 7. Compile 3D Scene in Blender 5.2
+        run: |
+          python kit/run.py "$PROJ_DIR" compile
+
+      - name: 8. Render All Frames in Parallel (With Missing-Frame Recovery)
+        run: |
+          python kit/run.py "$PROJ_DIR" render
+          python - << 'EOF'
+          import json, math, os, subprocess
+          ep = os.environ["PROJ_DIR"]
+          dur = json.load(open(os.path.join(ep, "timed.json")))["dur"]
+          total = int(math.ceil(dur * 30))
+          missing = [str(i) for i in range(total) if not os.path.exists(os.path.join(ep, "frames", f"{i:05d}.jpg"))]
+          if missing:
+              print(f"[Guard] Re-rendering {len(missing)} missing frames...", flush=True)
+              subprocess.run([
+                  "python", "kit/blox/render_par.py", ep, "1",
+                  "--frames", ",".join(missing), "--out", "frames"
+              ], check=True)
+          else:
+              print(f"[Guard] All {total} frames verified on disk.", flush=True)
+          EOF
+
+      - name: 9. Post-Process Captions, Music Bed, SFX & Encode Final MP4
+        run: |
+          python kit/run.py "$PROJ_DIR" post
+          OUT_MP4="$PROJ_DIR/out/${RUN_ID}.mp4"
+          test -s "$OUT_MP4"
+          ffprobe -v error -show_entries format=duration,size -of default=noprint_wrappers=1 "$OUT_MP4"
+          cp "$OUT_MP4" "$PWD/${RUN_ID}.mp4"
+          cp "$PROJ_DIR/meta.json" "$PWD/meta.json"
+
+      - name: 10. Upload MP4 as Workflow Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ env.RUN_ID }}
+          path: |
+            ${{ env.RUN_ID }}.mp4
+            meta.json
+          retention-days: 30
+
+      - name: 11. Publish MP4 to GitHub Releases (Easy Browser Download)
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ env.RUN_ID }}
+          name: "Generated Reel — ${{ env.RUN_ID }}"
+          body_path: meta.json
+          files: ${{ env.RUN_ID }}.mp4
+
+      - name: 12. Instagram Reels Upload (Skipped While ENABLE_IG_UPLOAD=false)
+        env:
+          RELEASE_VIDEO_URL: https://github.com/${{ github.repository }}/releases/download/${{ env.RUN_ID }}/${{ env.RUN_ID }}.mp4
+          IG_USER_ID: ${{ secrets.IG_USER_ID }}
+          IG_ACCESS_TOKEN: ${{ secrets.IG_ACCESS_TOKEN }}
+        run: |
+          python auto/publish_reel.py "$PROJ_DIR"
