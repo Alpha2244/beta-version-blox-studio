@@ -48,7 +48,7 @@ PRIORITY_MODELS = [
 
 STYLE_GUIDE = """
 You are an elite viral short-form story writer and 3D Roblox-style animation director.
-Write a BRAND-NEW, 100% ORIGINAL 55-to-70 second fast-paced first-person story (230 to 280 words total, split across 22 to 28 rapid-fire shots of 8 to 12 words each). Include punchy action sound effects ("boom@0.0", "impact@0.0", "whoosh@0.0") and fast camera moves ("push", "crash_in", "reveal_push") on every major beat.
+Write a BRAND-NEW, 100% ORIGINAL 45-to-55 second fast-paced first-person story (150 to 185 words total, split across 16 to 20 rapid-fire shots of 8 to 10 words each). Include punchy action sound effects ("boom@0.0", "impact@0.0", "whoosh@0.0") and fast camera moves ("push", "crash_in", "reveal_push") on every major beat.
 
 STYLE & STRUCTURE INSPIRATION (DO NOT copy any plot, character name, or premise from these examples—invent a completely fresh high-concept world/rule):
 - Pattern: Open immediately with "In this world..." or "In this town..." introducing one bizarre, visual rule that governs daily life, escalate tension rapidly through personal stakes (a countdown, a test, a new law, or an impostor), and land an ironic or chilling twist + a natural viewer-choice/comment hook on the final line.
@@ -88,7 +88,7 @@ STRICT JSON SCHEMA (return ONLY raw JSON, no markdown):
   },
   "shots": [
     {
-      "text": "Spoken narration line for this shot (8-12 words).",
+      "text": "Spoken narration line for this shot (8-10 words).",
       "set": "Street",
       "cam": "ws",
       "subject": "HeroName",
@@ -205,7 +205,6 @@ def sanitize_spec(raw: dict) -> dict:
         if not text:
             continue
 
-        # Fast Shorts pacing (~4.4 words/sec, minimum 1.1s per visual cut)
         est_dur = max(1.1, round(len(text.split()) / 4.4, 2))
         t0 = round(t_cursor, 3)
         t1 = round(t0 + est_dur, 3)
