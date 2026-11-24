@@ -10,8 +10,10 @@ import numpy as np
 from scipy.io import wavfile
 
 SR = 24000
-PAD_IN = 0.08
-PAD_OUT = 0.25
+# Tight back-to-back sentence spacing (eliminates slow dead air between cuts)
+PAD_IN = 0.02
+PAD_OUT = 0.05
+VOICE_SPEED = float(os.environ.get("VOICE_SPEED", "1.20"))
 
 
 def spoken(text: str) -> str:
@@ -51,9 +53,10 @@ def synthesize_line(api_key: str, voice_id: str, text: str):
         "text": text,
         "model_id": "eleven_multilingual_v2",
         "voice_settings": {
-            "stability": 0.45,
+            "stability": 0.40,
             "similarity_boost": 0.80,
-            "style": 0.35,
+            "style": 0.45,
+            "speed": max(0.7, min(1.2, VOICE_SPEED)),
             "use_speaker_boost": True,
         },
     }
@@ -76,6 +79,13 @@ def synthesize_line(api_key: str, voice_id: str, text: str):
 
             audio_bytes = base64.b64decode(data["audio_base64"])
             samples = np.frombuffer(audio_bytes, dtype=np.int16).astype(np.float32) / 32768.0
+
+            # Trim trailing silence so the next shot cuts immediately
+            nonzero = np.nonzero(np.abs(samples) > 0.01)[0]
+            if len(nonzero):
+                end_idx = min(len(samples), int(nonzero[-1]) + int(0.03 * SR))
+                samples = samples[:end_idx]
+
             alignment = data.get("alignment") or data.get("normalized_alignment") or {}
             words = alignment_to_words(alignment)
 
@@ -119,17 +129,17 @@ def main(project_dir: str):
         lines.append((audio, words))
         print(f"  [TTS {i:02d}] {len(audio)/SR:5.2f}s | {txt[:55]}", flush=True)
 
+    # Fit each shot tightly to its spoken line so cuts happen rapidly
     t, moved = 0.0, 0
     for s, ln in zip(spec["shots"], lines):
-        dur = s["t1"] - s["t0"]
-        need = (PAD_IN + len(ln[0]) / SR + PAD_OUT) if ln else 0.0
-        nd = max(dur, need)
-        if abs(nd - dur) > 1e-3 or abs(s["t0"] - t) > 1e-3:
+        need = (PAD_IN + len(ln[0]) / SR + PAD_OUT) if ln else 1.0
+        nd = max(0.8, round(need, 3))
+        if abs(s["t0"] - t) > 1e-3 or abs((s["t1"] - s["t0"]) - nd) > 1e-3:
             moved += 1
         s["t0"], s["t1"] = round(t, 3), round(t + nd, 3)
         t += nd
 
-    spec["dur"] = round(max(spec["dur"], t) if moved == 0 else t, 3)
+    spec["dur"] = round(t, 3)
 
     total = np.zeros(int(np.ceil(spec["dur"] * SR)) + SR, dtype=np.float32)
     all_words = []
@@ -156,7 +166,8 @@ def main(project_dir: str):
     if os.path.exists(kokoro_flag):
         os.remove(kokoro_flag)
 
-    print(f"[ElevenLabs] Wrote vo.wav + words.json ({len(all_words)} words, {spec['dur']:.2f}s, {moved} shots re-timed)", flush=True)
+    wpm = (len(all_words) / max(spec["dur"], 1.0)) * 60
+    print(f"[ElevenLabs] Wrote vo.wav + words.json ({len(all_words)} words in {spec['dur']:.2f}s = {wpm:.0f} WPM)", flush=True)
 
 
 if __name__ == "__main__":
