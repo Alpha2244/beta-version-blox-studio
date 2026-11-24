@@ -66,6 +66,7 @@ jobs:
           export LIBGL_ALWAYS_SOFTWARE=1
           export MESA_GL_VERSION_OVERRIDE=4.5
           export GALLIUM_DRIVER=llvmpipe
+          export LP_NUM_THREADS=2
           exec xvfb-run -a -s "-screen 0 1280x720x24" "$HOME/blender/blender" "$@"
           EOF
           sudo chmod +x /usr/local/bin/blender_headless
@@ -94,23 +95,76 @@ jobs:
         run: |
           python kit/run.py "$PROJ_DIR" compile
 
-      - name: 8. Render All Frames in Parallel (With Missing-Frame Recovery)
+      - name: 8. Render All Frames Safely (Live Frame Counter + Auto-Recovery)
         run: |
-          python kit/run.py "$PROJ_DIR" render
           python - << 'EOF'
-          import json, math, os, subprocess
+          import json, math, os, signal, subprocess, sys, time
+
           ep = os.environ["PROJ_DIR"]
           dur = json.load(open(os.path.join(ep, "timed.json")))["dur"]
           total = int(math.ceil(dur * 30))
-          missing = [str(i) for i in range(total) if not os.path.exists(os.path.join(ep, "frames", f"{i:05d}.jpg"))]
-          if missing:
-              print(f"[Guard] Re-rendering {len(missing)} missing frames...", flush=True)
-              subprocess.run([
+          frames_dir = os.path.join(ep, "frames")
+          os.makedirs(frames_dir, exist_ok=True)
+
+          # Limit parallel Blender workers to avoid Mesa llvmpipe RAM OOM/deadlock
+          ram_gb = os.sysconf("SC_PAGE_SIZE") * os.sysconf("SC_PHYS_PAGES") / (1024 ** 3)
+          workers = "2" if ram_gb >= 12 else "1"
+          print(f"[Render] Detected {ram_gb:.1f} GB RAM -> using {workers} safe Blender worker(s) for {total} frames ({dur:.2f}s)...", flush=True)
+
+          def run_pass(cmd, label):
+              proc = subprocess.Popen(cmd)
+              start_t = time.time()
+              last_count = sum(1 for f in os.listdir(frames_dir) if f.endswith(".jpg"))
+              last_progress_t = start_t
+              STALL_LIMIT_SEC = 240  # Kill stalled worker if 0 new frames for 4 minutes
+
+              while proc.poll() is None:
+                  time.sleep(20)
+                  done = sum(1 for f in os.listdir(frames_dir) if f.endswith(".jpg"))
+                  now = time.time()
+                  elapsed = now - start_t
+
+                  if done > last_count:
+                      last_count = done
+                      last_progress_t = now
+
+                  pct = (done / max(total, 1)) * 100.0
+                  fpm = (done / max(elapsed, 1.0)) * 60.0
+                  rem = max(0, total - done)
+                  eta_str = f"{rem / fpm:.1f}m" if fpm > 0 else "starting Blender..."
+                  idle_sec = int(now - last_progress_t)
+
+                  print(
+                      f"[{label}] {done} / {total} frames ({pct:5.1f}%) | "
+                      f"Speed: {fpm:4.1f} frames/min | ETA: {eta_str} | Idle: {idle_sec}s",
+                      flush=True,
+                  )
+
+                  if idle_sec >= STALL_LIMIT_SEC:
+                      print(f"[WARN] {label} stalled for {idle_sec}s! Killing hung workers and recovering remaining frames...", flush=True)
+                      proc.send_signal(signal.SIGTERM)
+                      time.sleep(5)
+                      proc.kill()
+                      return False
+              return proc.returncode == 0
+
+          run_pass(["python", "kit/blox/render_par.py", ep, workers], "Pass 1")
+
+          # Automatically finish any missing/unrendered frames in a clean 1-worker pass
+          for recovery_attempt in range(1, 4):
+              missing = [str(i) for i in range(total) if not os.path.exists(os.path.join(frames_dir, f"{i:05d}.jpg"))]
+              if not missing:
+                  break
+              print(f"[Recovery {recovery_attempt}] Rendering {len(missing)} remaining frames...", flush=True)
+              run_pass([
                   "python", "kit/blox/render_par.py", ep, "1",
                   "--frames", ",".join(missing), "--out", "frames"
-              ], check=True)
-          else:
-              print(f"[Guard] All {total} frames verified on disk.", flush=True)
+              ], f"Recovery {recovery_attempt}")
+
+          final_missing = [i for i in range(total) if not os.path.exists(os.path.join(frames_dir, f"{i:05d}.jpg"))]
+          if final_missing:
+              sys.exit(f"[ERROR] Still missing {len(final_missing)} frames after recovery.")
+          print(f"[Guard] All {total} / {total} frames verified on disk!", flush=True)
           EOF
 
       - name: 9. Post-Process Captions, Music Bed, SFX & Encode Final MP4
