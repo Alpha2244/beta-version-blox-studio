@@ -37,24 +37,38 @@ OUTFIT_PALETTES = [
     {"skin": [0.76, 0.54, 0.38], "shirt": [0.62, 0.20, 0.88], "pants": [0.14, 0.14, 0.18], "hair_color": [0.10, 0.07, 0.05]},
 ]
 
-VALID_CAMS = {"ecu", "cu", "mcu", "ms", "mls", "ws", "low", "high", "ots", "two"}
+VALID_CAMS = {"ecu", "cu", "mcu", "ms", "mls", "ws", "low", "high", "ots", "two", "ews", "ground", "pov"}
 VALID_MOVES = {"crash_in", "push", "reveal_push", "creep", "drift", "lock"}
 VALID_MOODS = {"sunny", "sunset", "storm", "night"}
 VALID_ANIMS = {
     "idle", "talk", "walk", "run", "nod", "headshake", "flinch",
     "slump", "jump_joy", "shock", "surrender", "what", "facepalm", "clap",
 }
+# Exact shape-key expressions supported by kit/blox/chars.py
 VALID_FACES = {"neutral", "smile", "angry", "scared", "worried", "think", "shock", "smug", "sad"}
 FACE_ALIASES = {
     "happy": "smile",
     "joy": "smile",
     "excited": "smile",
     "laugh": "smile",
+    "grin": "smile",
     "fear": "scared",
+    "terrified": "scared",
     "surprised": "shock",
+    "amazed": "shock",
     "mad": "angry",
+    "furious": "angry",
     "upset": "sad",
+    "crying": "sad",
+    "confused": "think",
+    "nervous": "worried",
 }
+
+
+def sanitize_face(val) -> str:
+    raw = str(val or "neutral").lower().strip()
+    mapped = FACE_ALIASES.get(raw, raw)
+    return mapped if mapped in VALID_FACES else "neutral"
 
 
 def extract_json_safely(raw_text: str) -> dict:
@@ -71,7 +85,6 @@ def extract_json_safely(raw_text: str) -> dict:
 
 
 def load_training_context() -> tuple[dict, str]:
-    """Loads a random blueprint + multi-script training block from the synced @craftee_films vault."""
     blueprints = sorted(glob.glob(os.path.join(BLUEPRINT_DIR, "*.json")))
     bp = json.load(open(random.choice(blueprints), encoding="utf-8")) if blueprints else {}
 
@@ -106,30 +119,36 @@ def load_training_context() -> tuple[dict, str]:
 
 def build_offline_fast_story(palettes: list[dict]) -> dict:
     beats = [
-        ("MusicRow", "sunny", "mcu", "crash_in", "Alex", "STOP scrolling! Never take a mystery bet!", "shock", "shock", ["whoosh@0.0"]),
-        ("MusicRow", "sunny", "two", "push", "Jax", "Jax bet me a hundred bucks right here.", "talk", "smug", []),
-        ("MusicRow", "sunny", "cu", "creep", "Alex", "He said I couldn't last ten minutes.", "talk", "angry", []),
-        ("MusicRow", "sunny", "low", "crash_in", "Alex", "I accepted without reading the rules!", "what", "shock", ["boom@0.0"]),
-        ("MusicRow", "sunny", "ws", "drift", "Jax", "Suddenly the whole street went dead silent.", "idle", "smug", []),
-        ("MusicRow", "storm", "mcu", "crash_in", "Alex", "Dark clouds rolled in out of nowhere!", "flinch", "scared", ["impact@0.0"]),
-        ("MusicRow", "storm", "ecu", "push", "Alex", "The timer started counting down fast!", "run", "worried", []),
-        ("TownPool", "sunny", "ws", "reveal_push", "Alex", "Round two moved straight to the pool!", "run", "shock", ["whoosh@0.0"]),
-        ("TownPool", "sunny", "mcu", "push", "Jax", "Jax laughed thinking I would quit now.", "clap", "smug", []),
-        ("TownPool", "sunny", "low", "creep", "Alex", "Every second felt ten times harder.", "slump", "worried", []),
-        ("TownPool", "sunny", "cu", "crash_in", "Alex", "Then I spotted his secret cheat code!", "shock", "shock", ["ding@0.1"]),
-        ("TownPool", "sunny", "two", "push", "Alex", "He rigged the timer from the start!", "angry", "angry", []),
-        ("Gym", "sunny", "ws", "reveal_push", "Alex", "So I challenged him to sudden death!", "walk", "angry", ["whoosh@0.0"]),
-        ("Gym", "sunny", "mcu", "push", "Jax", "Jax started sweating bullets on the court.", "headshake", "scared", []),
-        ("Gym", "sunny", "low", "crash_in", "Alex", "Three seconds left on the clock!", "run", "shock", ["riser@0.0"]),
-        ("Gym", "sunny", "ecu", "crash_in", "Alex", "Two seconds left and zero room!", "shock", "shock", []),
-        ("Gym", "sunny", "ws", "crash_in", "Alex", "BUZZER BEATER! I actually pulled it off!", "jump_joy", "smile", ["boom@0.0"]),
-        ("Gym", "sunny", "mcu", "push", "Jax", "Jax dropped his jaw in total disbelief.", "facepalm", "sad", ["pop@0.0"]),
-        ("Gym", "sunny", "two", "drift", "Alex", "He had to hand over the whole prize.", "nod", "smile", ["cash@0.0"]),
-        ("Gym", "sunny", "cu", "push", "Alex", "Never underestimate someone who refuses to quit!", "clap", "smile", ["ding@0.1"]),
+        ("Street", "sunny", "mcu", "crash_in", "Alex", "STOP scrolling! Never touch a parked supercar!", "shock", "shock", ["whoosh@0.0"]),
+        ("Street", "sunny", "two", "push", "Jax", "Jax dared me to open the door.", "talk", "smug", []),
+        ("Street", "sunny", "cu", "creep", "Alex", "He said the owner was miles away.", "talk", "angry", []),
+        ("Street", "sunny", "low", "crash_in", "Alex", "The second I touched it, alarms screamed!", "what", "shock", ["boom@0.0"]),
+        ("Street", "sunny", "ws", "drift", "Maya", "Maya yelled from across the town square!", "run", "scared", []),
+        ("Street", "storm", "mcu", "crash_in", "Alex", "Dark storm clouds rolled in instantly!", "flinch", "scared", ["impact@0.0"]),
+        ("Street", "storm", "ecu", "push", "Alex", "Footsteps echoed right behind my back!", "run", "worried", []),
+        ("TownPool", "sunny", "ws", "reveal_push", "Alex", "I sprinted straight past the town pool!", "run", "shock", ["whoosh@0.0"]),
+        ("TownPool", "sunny", "mcu", "push", "Jax", "Jax laughed thinking I was busted now.", "clap", "smug", []),
+        ("TownPool", "sunny", "low", "creep", "Alex", "Then a mystery man stepped forward.", "slump", "worried", []),
+        ("TownPool", "sunny", "cu", "crash_in", "Maya", "Wait—that wasn't even the car's owner!", "shock", "shock", ["ding@0.1"]),
+        ("TownPool", "sunny", "two", "push", "Alex", "Jax hired an actor to prank me!", "angry", "angry", []),
+        ("MusicRow", "sunny", "ws", "reveal_push", "Alex", "So I turned the tables on Music Row!", "walk", "angry", ["whoosh@0.0"]),
+        ("MusicRow", "sunny", "mcu", "push", "Jax", "Jax froze when the real owner arrived.", "headshake", "scared", []),
+        ("MusicRow", "sunny", "low", "crash_in", "Alex", "He saw Jax holding the fake keys!", "run", "shock", ["riser@0.0"]),
+        ("MusicRow", "sunny", "ecu", "crash_in", "Jax", "Jax tried to explain, completely trapped!", "surrender", "scared", []),
+        ("MusicRow", "sunny", "ws", "crash_in", "Alex", "The owner handed ME the VIP pass!", "jump_joy", "smile", ["boom@0.0"]),
+        ("MusicRow", "sunny", "mcu", "push", "Jax", "Jax dropped his jaw in total shock.", "facepalm", "sad", ["pop@0.0"]),
+        ("MusicRow", "sunny", "two", "drift", "Maya", "Maya couldn't stop laughing at his face.", "clap", "smile", ["cash@0.0"]),
+        ("MusicRow", "sunny", "cu", "push", "Alex", "Never prank someone smarter than you!", "nod", "smile", ["ding@0.1"]),
     ]
     shots = []
     for st, md, cm, mv, subj, txt, anim, face, sfx in beats:
-        other = "Jax" if subj == "Alex" else "Alex"
+        other = "Jax" if subj != "Jax" else "Alex"
+        actors = [
+            {"who": subj, "at": [-1.4, 0], "yaw": 15, "anim": anim, "face": face, "talk": [0.0, 1.6]},
+            {"who": other, "at": [1.6, 0.4], "yaw": -20, "anim": "idle", "face": "smug" if other == "Jax" else "neutral"},
+        ]
+        if st in ("Street", "TownPool", "MusicRow"):
+            actors.append({"who": "Maya", "at": [3.2, -0.8], "yaw": -35, "anim": "idle", "face": "shock"})
         shots.append({
             "set": st,
             "mood": md,
@@ -138,19 +157,17 @@ def build_offline_fast_story(palettes: list[dict]) -> dict:
             "subject": subj,
             "text": txt,
             "sfx": sfx,
-            "actors": [
-                {"who": subj, "at": [-1.4, 0], "yaw": 15, "anim": anim, "face": face, "talk": [0.0, 1.6]},
-                {"who": other, "at": [1.6, 0.4], "yaw": -20, "anim": "idle", "face": "smug" if other == "Jax" else "neutral"},
-            ],
+            "actors": actors,
         })
     return {
-        "title": "I Accepted a Rigged $100 Challenge!",
-        "caption": "He rigged the rules from the start! #roblox #storytime #shorts #reels #fyp",
-        "keys": ["STOP", "MYSTERY", "HUNDRED", "CHEAT", "BUZZER", "NEVER"],
+        "title": "I Touched a Parked Supercar in Town!",
+        "caption": "He tried to prank me in front of the whole town! #roblox #storytime #shorts #reels #fyp",
+        "keys": ["STOP", "SUPERCAR", "ALARMS", "PRANK", "TRAPPED", "NEVER"],
         "music": [[0, "playful"], [0.35, "suspense"], [0.75, "hit"], [0.85, "triumph"]],
         "cast": {
             "Alex": {"height": 1.0, **palettes[0]},
             "Jax": {"height": 1.05, **palettes[1]},
+            "Maya": {"height": 0.96, **palettes[2]},
         },
         "shots": shots,
     }
@@ -206,18 +223,19 @@ def main(project_dir: str):
 {corpus_block}
 
 SELECTED VISUAL & CAMERA BLUEPRINT FROM @craftee_films:
-{json.dumps(bp, indent=2) if bp else "Fast-paced 24-to-28-shot Roblox comedic/dramatic twist Reel with 1.6s cuts, punchy 3-second hook, escalating stakes, and rich set changes."}
+{json.dumps(bp, indent=2) if bp else "Fast-paced 24-to-28-shot Roblox comedic/dramatic twist Reel with 1.6s cuts, punchy 3-second hook, escalating stakes, and rich town/street sets."}
 
-OPTIONAL USER THEME: "{theme or 'Write a brand-new original viral twist story matching the exact hook punchiness, fast dialogue rhythm, and rapid visual cuts of the @craftee_films scripts above (never copy any script word-for-word).'}"
+OPTIONAL USER THEME: "{theme or 'Write a brand-new original viral town/street twist story matching the exact hook punchiness, fast dialogue rhythm, and rapid visual cuts of the @craftee_films scripts above (never copy any script word-for-word).'}"
 
 STRICT PRODUCTION RULES:
 1. TOTAL LENGTH: 210 to 250 words across 24 to 28 rapid shots (each shot is 1 short punchy sentence, ~8-10 words, cutting every ~1.6 to 1.85 seconds).
-2. MULTI-LOCATION VISUAL VARIETY: Use 2 to 3 DIFFERENT rich sets from: {json.dumps(RICH_SETS)}
+2. RICH TOWN & MULTI-LOCATION SETS: Use 2 to 3 DIFFERENT lively town sets from: {json.dumps(RICH_SETS)} (prefer "Street", "TownPool", "MusicRow", "Park", "Store" for outdoor town cars, buildings, and crowds).
 3. DYNAMIC CAMERA WORK: Never repeat the same angle twice in a row! Alternate cam ({json.dumps(sorted(VALID_CAMS))}) and move ({json.dumps(sorted(VALID_MOVES))}).
-4. ALLOWED ACTOR FACES ONLY: {json.dumps(sorted(VALID_FACES))} (use "smile" instead of "happy").
-5. CHARACTERS: Use Alex and Jax with these exact color palettes:
+4. ALLOWED ACTOR FACES ONLY: {json.dumps(sorted(VALID_FACES))} (NEVER output "happy" — use "smile").
+5. 3-CHARACTER TOWN CAST: Use Alex, Jax, and Maya with 2-3 actors visible in wide/two shots so the town feels alive:
    - Alex: {json.dumps(palettes[0])}
    - Jax: {json.dumps(palettes[1])}
+   - Maya: {json.dumps(palettes[2])}
 
 Return ONLY valid JSON matching:
 {{
@@ -227,11 +245,12 @@ Return ONLY valid JSON matching:
   "music": [[0, "playful"], [0.45, "suspense"], [0.75, "hit"], [0.85, "triumph"]],
   "cast": {{
     "Alex": {{"height": 1.0, "skin": {json.dumps(palettes[0]['skin'])}, "shirt": {json.dumps(palettes[0]['shirt'])}, "pants": {json.dumps(palettes[0]['pants'])}, "hair_color": {json.dumps(palettes[0]['hair_color'])}}},
-    "Jax": {{"height": 1.05, "skin": {json.dumps(palettes[1]['skin'])}, "shirt": {json.dumps(palettes[1]['shirt'])}, "pants": {json.dumps(palettes[1]['pants'])}, "hair_color": {json.dumps(palettes[1]['hair_color'])}}}
+    "Jax": {{"height": 1.05, "skin": {json.dumps(palettes[1]['skin'])}, "shirt": {json.dumps(palettes[1]['shirt'])}, "pants": {json.dumps(palettes[1]['pants'])}, "hair_color": {json.dumps(palettes[1]['hair_color'])}}},
+    "Maya": {{"height": 0.96, "skin": {json.dumps(palettes[2]['skin'])}, "shirt": {json.dumps(palettes[2]['shirt'])}, "pants": {json.dumps(palettes[2]['pants'])}, "hair_color": {json.dumps(palettes[2]['hair_color'])}}}
   }},
   "shots": [
     {{
-      "set": "MusicRow",
+      "set": "Street",
       "mood": "sunny",
       "cam": "mcu",
       "move": "crash_in",
@@ -260,6 +279,7 @@ Return ONLY valid JSON matching:
         story["cast"] = {
             "Alex": {"height": 1.0, **palettes[0]},
             "Jax": {"height": 1.05, **palettes[1]},
+            "Maya": {"height": 0.96, **palettes[2]},
         }
     cast_names = list(story["cast"].keys())
 
@@ -273,7 +293,7 @@ Return ONLY valid JSON matching:
     cam_cycle = ["mcu", "ws", "low", "cu", "two", "ots", "ecu", "ms"]
     for idx, sh in enumerate(shots):
         if sh.get("set") not in valid_sets:
-            sh["set"] = RICH_SETS[(idx // 7) % 3]
+            sh["set"] = ["Street", "TownPool", "MusicRow"][(idx // 8) % 3]
         if sh.get("mood") not in VALID_MOODS:
             sh["mood"] = "sunny"
         if sh.get("cam") not in VALID_CAMS or sh.get("cam") == prev_cam:
@@ -299,9 +319,9 @@ Return ONLY valid JSON matching:
                     act["who"] = cast_names[0]
                 if act.get("anim") not in VALID_ANIMS:
                     act["anim"] = "talk"
-                raw_face = str(act.get("face", "neutral")).lower().strip()
-                mapped_face = FACE_ALIASES.get(raw_face, raw_face)
-                act["face"] = mapped_face if mapped_face in VALID_FACES else "neutral"
+                act["face"] = sanitize_face(act.get("face"))
+                if isinstance(act.get("faceAt"), list):
+                    act["faceAt"] = [[pair[0], sanitize_face(pair[1])] for pair in act["faceAt"] if isinstance(pair, list) and len(pair) >= 2]
 
     story["dur"] = round(t_cursor, 2)
 
