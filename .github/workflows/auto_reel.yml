@@ -35,6 +35,17 @@ jobs:
       - name: 1. Checkout Forked Blox Studio Repo
         uses: actions/checkout@v4
 
+      - name: 1b. Pull Latest @craftee_films Reference Vault (Corpus & Blueprints)
+        uses: actions/checkout@v4
+        with:
+          repository: Alpha2244/craftee-reference-vault
+          token: ${{ secrets.VAULT_PAT || github.token }}
+          path: reference-vault
+          sparse-checkout: |
+            vault/blueprints
+            vault/master_script_corpus.json
+          sparse-checkout-cone-mode: false
+
       - name: 2. Setup Python 3.11 & Core Deps
         uses: actions/setup-python@v5
         with:
@@ -75,10 +86,11 @@ jobs:
           sudo chmod +x /usr/local/bin/blender_headless
           echo "BLENDER=/usr/local/bin/blender_headless" >> $GITHUB_ENV
 
-      - name: 5. Generate Original Fast-Paced Story & Shot List (Gemini Cascade)
+      - name: 5. Generate Vault-Trained Fast-Paced Story & Shot List (Gemini Cascade)
         env:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           STORY_THEME: ${{ github.event.inputs.story_theme }}
+          REFERENCE_VAULT_DIR: ${{ github.workspace }}/reference-vault/vault
         run: |
           RUN_ID="reel_$(date -u +%Y%m%d_%H%M%S)"
           PROJ_DIR="$PWD/kit/projects/$RUN_ID"
