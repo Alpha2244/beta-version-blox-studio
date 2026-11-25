@@ -44,7 +44,17 @@ VALID_ANIMS = {
     "idle", "talk", "walk", "run", "nod", "headshake", "flinch",
     "slump", "jump_joy", "shock", "surrender", "what", "facepalm", "clap",
 }
-VALID_FACES = {"neutral", "happy", "angry", "scared", "worried", "think", "shock", "smug", "sad"}
+VALID_FACES = {"neutral", "smile", "angry", "scared", "worried", "think", "shock", "smug", "sad"}
+FACE_ALIASES = {
+    "happy": "smile",
+    "joy": "smile",
+    "excited": "smile",
+    "laugh": "smile",
+    "fear": "scared",
+    "surprised": "shock",
+    "mad": "angry",
+    "upset": "sad",
+}
 
 
 def extract_json_safely(raw_text: str) -> dict:
@@ -112,10 +122,10 @@ def build_offline_fast_story(palettes: list[dict]) -> dict:
         ("Gym", "sunny", "mcu", "push", "Jax", "Jax started sweating bullets on the court.", "headshake", "scared", []),
         ("Gym", "sunny", "low", "crash_in", "Alex", "Three seconds left on the clock!", "run", "shock", ["riser@0.0"]),
         ("Gym", "sunny", "ecu", "crash_in", "Alex", "Two seconds left and zero room!", "shock", "shock", []),
-        ("Gym", "sunny", "ws", "crash_in", "Alex", "BUZZER BEATER! I actually pulled it off!", "jump_joy", "happy", ["boom@0.0"]),
+        ("Gym", "sunny", "ws", "crash_in", "Alex", "BUZZER BEATER! I actually pulled it off!", "jump_joy", "smile", ["boom@0.0"]),
         ("Gym", "sunny", "mcu", "push", "Jax", "Jax dropped his jaw in total disbelief.", "facepalm", "sad", ["pop@0.0"]),
-        ("Gym", "sunny", "two", "drift", "Alex", "He had to hand over the whole prize.", "nod", "happy", ["cash@0.0"]),
-        ("Gym", "sunny", "cu", "push", "Alex", "Never underestimate someone who refuses to quit!", "clap", "happy", ["ding@0.1"]),
+        ("Gym", "sunny", "two", "drift", "Alex", "He had to hand over the whole prize.", "nod", "smile", ["cash@0.0"]),
+        ("Gym", "sunny", "cu", "push", "Alex", "Never underestimate someone who refuses to quit!", "clap", "smile", ["ding@0.1"]),
     ]
     shots = []
     for st, md, cm, mv, subj, txt, anim, face, sfx in beats:
@@ -204,7 +214,8 @@ STRICT PRODUCTION RULES:
 1. TOTAL LENGTH: 210 to 250 words across 24 to 28 rapid shots (each shot is 1 short punchy sentence, ~8-10 words, cutting every ~1.6 to 1.85 seconds).
 2. MULTI-LOCATION VISUAL VARIETY: Use 2 to 3 DIFFERENT rich sets from: {json.dumps(RICH_SETS)}
 3. DYNAMIC CAMERA WORK: Never repeat the same angle twice in a row! Alternate cam ({json.dumps(sorted(VALID_CAMS))}) and move ({json.dumps(sorted(VALID_MOVES))}).
-4. CHARACTERS: Use Alex and Jax with these exact color palettes:
+4. ALLOWED ACTOR FACES ONLY: {json.dumps(sorted(VALID_FACES))} (use "smile" instead of "happy").
+5. CHARACTERS: Use Alex and Jax with these exact color palettes:
    - Alex: {json.dumps(palettes[0])}
    - Jax: {json.dumps(palettes[1])}
 
@@ -288,8 +299,9 @@ Return ONLY valid JSON matching:
                     act["who"] = cast_names[0]
                 if act.get("anim") not in VALID_ANIMS:
                     act["anim"] = "talk"
-                if act.get("face") not in VALID_FACES:
-                    act["face"] = "neutral"
+                raw_face = str(act.get("face", "neutral")).lower().strip()
+                mapped_face = FACE_ALIASES.get(raw_face, raw_face)
+                act["face"] = mapped_face if mapped_face in VALID_FACES else "neutral"
 
     story["dur"] = round(t_cursor, 2)
 
