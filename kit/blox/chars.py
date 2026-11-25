@@ -426,9 +426,6 @@ def _glasses(name, mat):
                     vs.append(bm.verts.new(_wrap((x, y), e)))
         for i in range(n - 1):
             a = [vs[4 * i + j] for j in range(4)]; b = [vs[4 * (i + 1) + j] for j in range(4)]
-            # 0:(y0,in) 1:(y0,out) 2:(y1,in) 3:(y1,out)
-            for q in ((0, 1, 3, 2), (2, 3, 3, 2), (0, 2, 2, 0), (1, 3, 3, 1)):
-                pass
             bm.faces.new((a[1], b[1], b[3], a[3]))   # front
             bm.faces.new((a[0], a[2], b[2], b[0]))   # back
             bm.faces.new((a[0], b[0], b[1], a[1]))   # bottom
@@ -535,11 +532,12 @@ def _shade_col(rgb, f):
     return tuple(max(0, min(1, c * f)) for c in rgb)
 
 
-
 # ---------------------------------------------------------------- shirt prints (Beta Version)
 from pathlib import Path as _Path
 _WM = _Path(__file__).resolve().parents[1] / 'assets' / 'brand' / 'bv-wordmark-transparent.png'
 _WMB = "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"
+
+
 def _wm_image():
     im = bpy.data.images.get('bv_print')
     if im: return im
@@ -550,6 +548,7 @@ def _wm_image():
         p = os.path.join(tempfile.gettempdir(), 'bv_print.png'); open(p, 'wb').write(base64.b64decode(_WMB))
         im = bpy.data.images.load(p); im.name = 'bv_print'
     im.pack(); return im
+
 
 def _print_mat(plate):
     nm = 'rbx_print_plate' if plate else 'rbx_print'
@@ -570,6 +569,7 @@ def _print_mat(plate):
         except Exception: pass
     return m
 
+
 def _print_plane(name, center, width, back=False, plate=True):
     """Flat print on a body surface. Front faces -Y; back=True faces +Y. Aspect follows the wordmark."""
     im = _wm_image(); w = width; h = width * im.size[1] / max(1, im.size[0])
@@ -585,6 +585,7 @@ def _print_plane(name, center, width, back=False, plate=True):
     for img_node in ob.data.materials[0].node_tree.nodes:
         if img_node.type == 'TEX_IMAGE': img_node.extension = 'CLIP'
     return ob
+
 
 def make_char(name, spec):
     sc = bpy.context.scene
@@ -649,7 +650,10 @@ def make_char(name, spec):
     fo['rbx_role'] = 'face'
     _parent(fo, arm, 'head')
     # hair
-    for ob in _hair(name + '_hair', spec.get('hair', 'short'), M_hair,
+    hair_style = spec.get('hair', 'short')
+    if hair_style not in HAIR_STYLES:
+        hair_style = 'short'
+    for ob in _hair(name + '_hair', hair_style, M_hair,
                     _cmat(spec.get('cap_color', (0.1, 0.3, 0.85)), 'cap', rough=0.5)):
         ob['rbx_role'] = 'hair'
         _parent(ob, arm, 'head')
@@ -697,7 +701,7 @@ def make_char(name, spec):
     prints.append(_print_plane(name + '_print_back', (0, 0.512, 3.35), 1.6, back=True))
     for ob in prints:
         ob['rbx_role'] = 'acc'; _parent(ob, arm, 'torso'); parts.append(ob)
-    if spec.get('hair') == 'cap':
+    if hair_style == 'cap':
         cp = _print_plane(name + '_print_cap', (HEAD_C.x, HEAD_C.y - 0.735, HEAD_C.z + 0.62), 0.62, plate=False)
         cp['rbx_role'] = 'hair'; _parent(cp, arm, 'head')
 
@@ -925,13 +929,32 @@ def pose(arm, frame, anim, phase=0.0, amount=1.0):
         pb.keyframe_insert('rotation_quaternion', frame=frame)
 
 
+_EXPR_ALIASES = {
+    'happy': 'smile',
+    'joy': 'grin',
+    'excited': 'grin',
+    'fear': 'scared',
+    'surprised': 'shock',
+    'mad': 'angry',
+    'upset': 'sad',
+    'confused': 'think',
+    'nervous': 'worried',
+}
+
+
 def face(arm, frame, expr, viseme=None, blink=0.0, look=(0, 0), mix_from=None, mix=1.0):
     fo = bpy.data.objects[arm['rbx_face']]
     kb = fo.data.shape_keys.key_blocks
     w = {e: 0.0 for e in EXPRS}
-    w[expr] += mix
+    expr_key = _EXPR_ALIASES.get(str(expr).lower().strip(), str(expr).lower().strip())
+    if expr_key not in w:
+        expr_key = 'neutral'
+    w[expr_key] += mix
     if mix_from is not None:
-        w[mix_from] += 1.0 - mix
+        mf_key = _EXPR_ALIASES.get(str(mix_from).lower().strip(), str(mix_from).lower().strip())
+        if mf_key not in w:
+            mf_key = 'neutral'
+        w[mf_key] += 1.0 - mix
     else:
         w['neutral'] += 1.0 - mix
     blink = max(0.0, min(1.0, blink))
