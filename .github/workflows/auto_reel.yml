@@ -28,50 +28,41 @@ jobs:
           repository: Alpha2244/craftee-reference-vault
           path: reference-vault
 
-      - name: 3. Setup Python 3.11 & System Dependencies
+      - name: 3. Setup Python 3.11 & Install Blender + FFmpeg + Voice
         uses: actions/setup-python@v5
         with:
           python-version: "3.11"
 
-      - name: 4. Install Blender, FFmpeg & Python Packages
+      - name: Install Dependencies
         run: |
           sudo apt-get update -qq
-          sudo apt-get install -y -qq ffmpeg blender xvfb libxi6 libxxf86vm1 libxfixes3 libxrender1 libgl1
-          if [ -f requirements.txt ]; then
-            pip install -q -r requirements.txt
-          else
-            pip install -q Pillow numpy edge-tts gTTS
-          fi
+          sudo apt-get install -y -qq ffmpeg blender xvfb espeak-ng libxi6 libxxf86vm1 libxfixes3 libxrender1 libgl1
+          pip install -q -r kit/requirements.txt
+          pip install -q -r kit/requirements-voice.txt
 
-      - name: 5. Generate Story & Shot Plan from @craftee_films Vault
+      - name: 4. Generate Story & Shot Plan from @craftee_films Vault
         env:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           CRAFTEE_VAULT_DIR: ${{ github.workspace }}/reference-vault/vault
           STORY_THEME: ${{ github.event.inputs.theme || '' }}
         run: |
-          mkdir -p project_out
-          SCRIPT=$(find . -maxdepth 3 -name "generate_cloned_story.py" | head -n 1)
+          mkdir -p kit/projects/daily_reel
+          SCRIPT=$(find . -maxdepth 3 -name "generate_cloned_story.py" -not -path './reference-vault*' | head -n 1)
           test -n "$SCRIPT" || { echo "generate_cloned_story.py not found"; exit 1; }
-          python "$SCRIPT" ./project_out
+          python "$SCRIPT" kit/projects/daily_reel
 
-      - name: 6. Build TTS Voiceover & Render 3D Video
+      - name: 5. Run Voice, Compile, Render & Post via kit/run.py
+        env:
+          BLENDER: /usr/bin/blender
         run: |
-          BUILD_SCRIPT=$(find . -maxdepth 3 \( -name "build_video.py" -o -name "render_pipeline.py" -o -name "main.py" \) | head -n 1)
-          if [ -n "$BUILD_SCRIPT" ]; then
-            xvfb-run -a python "$BUILD_SCRIPT" ./project_out
-          else
-            echo "No main build script found; checking for Blender script..."
-            BLENDER_SCRIPT=$(find . -maxdepth 3 -name "*render*.py" | head -n 1)
-            test -n "$BLENDER_SCRIPT" || { echo "No render script found in repo"; exit 1; }
-            xvfb-run -a blender -b -P "$BLENDER_SCRIPT" -- ./project_out
-          fi
+          xvfb-run -a python kit/run.py kit/projects/daily_reel voice compile render post
 
-      - name: 7. Upload Rendered Reel & Metadata Artifact
+      - name: 6. Upload Finished MP4 Reel & Metadata Artifact
         uses: actions/upload-artifact@v4
         with:
           name: blox-studio-rendered-reel-${{ github.run_number }}
           path: |
-            project_out/*.mp4
-            project_out/timed.json
-            project_out/meta.json
+            kit/projects/daily_reel/out/daily_reel.mp4
+            kit/projects/daily_reel/timed.json
+            kit/projects/daily_reel/meta.json
           retention-days: 14
