@@ -1,68 +1,266 @@
-name: Render @craftee_films Style 3D Reel
+name: Auto Generate & Render Blox Reel
 
 on:
   workflow_dispatch:
     inputs:
-      theme:
-        description: "Optional story theme (leave blank for auto-generated viral @craftee_films twist)"
+      story_theme:
+        description: "Optional theme/hook idea (leave blank for random original twist)"
         required: false
         default: ""
+      voice_engine:
+        description: "Voice engine: 'kokoro' (100% FREE unlimited) or 'elevenlabs'"
+        required: false
+        default: "kokoro"
+      voice_tempo:
+        description: "Final narration pace multiplier (1.35 to 1.55; default 1.45 fast)"
+        required: false
+        default: "1.45"
   schedule:
+    # Runs daily at 14:00 UTC (7:00 PM PKT)
     - cron: "0 14 * * *"
 
 permissions:
   contents: write
 
+env:
+  ENABLE_IG_UPLOAD: "false"
+  BLENDER_VERSION: "5.2.0"
+
 jobs:
-  render-video:
+  render-reel:
     runs-on: ubuntu-latest
-    timeout-minutes: 60
+    timeout-minutes: 90
 
     steps:
-      - name: 1. Checkout Blox Studio Repository
+      - name: 1. Checkout Forked Blox Studio Repo
         uses: actions/checkout@v4
 
-      - name: 2. Checkout Harvested @craftee_films Reference Vault
-        uses: actions/checkout@v4
-        with:
-          repository: Alpha2244/craftee-reference-vault
-          path: reference-vault
-
-      - name: 3. Setup Python 3.11 & Install Blender + FFmpeg + Voice
+      - name: 2. Setup Python 3.11 & Core Deps
         uses: actions/setup-python@v5
         with:
           python-version: "3.11"
 
-      - name: Install Dependencies
+      - name: Install Numpy, Scipy, Pillow & Kokoro TTS
+        run: pip install -q "numpy>=1.26.0" "scipy>=1.11.0" "Pillow>=10.0.0" kokoro soundfile
+
+      - name: 3. Install Headless Display, Audio & Mesa OpenGL Drivers
         run: |
           sudo apt-get update -qq
-          sudo apt-get install -y -qq ffmpeg blender xvfb espeak-ng libxi6 libxxf86vm1 libxfixes3 libxrender1 libgl1
-          pip install -q -r kit/requirements.txt
-          pip install -q -r kit/requirements-voice.txt
+          sudo apt-get install -y -qq xvfb ffmpeg libgl1-mesa-dri libgl1 libegl1 libxrender1 libxi6 libxkbcommon0 libsm6 espeak-ng
 
-      - name: 4. Generate Story & Shot Plan from @craftee_films Vault
+      - name: 4. Cache & Install Blender 5.2
+        id: cache-blender
+        uses: actions/cache@v4
+        with:
+          path: ~/blender
+          key: blender-${{ env.BLENDER_VERSION }}-linux-x64
+
+      - name: Download Blender 5.2 (if not cached)
+        if: steps.cache-blender.outputs.cache-hit != 'true'
+        run: |
+          wget -q "https://download.blender.org/release/Blender5.2/blender-${{ env.BLENDER_VERSION }}-linux-x64.tar.xz" -O /tmp/blender.tar.xz
+          mkdir -p ~/blender
+          tar -xf /tmp/blender.tar.xz -C ~/blender --strip-components=1
+          rm -f /tmp/blender.tar.xz
+
+      - name: Configure Headless Software-GL Blender Wrapper
+        run: |
+          sudo tee /usr/local/bin/blender_headless > /dev/null << 'EOF'
+          #!/bin/bash
+          export LIBGL_ALWAYS_SOFTWARE=1
+          export MESA_GL_VERSION_OVERRIDE=4.5
+          export GALLIUM_DRIVER=llvmpipe
+          exec xvfb-run -a -s "-screen 0 1280x720x24" "$HOME/blender/blender" "$@"
+          EOF
+          sudo chmod +x /usr/local/bin/blender_headless
+          echo "BLENDER=/usr/local/bin/blender_headless" >> $GITHUB_ENV
+
+      - name: 5. Generate Original Fast-Paced Story & Shot List (Gemini Cascade)
         env:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
-          CRAFTEE_VAULT_DIR: ${{ github.workspace }}/reference-vault/vault
-          STORY_THEME: ${{ github.event.inputs.theme || '' }}
+          STORY_THEME: ${{ github.event.inputs.story_theme }}
         run: |
-          mkdir -p kit/projects/daily_reel
-          SCRIPT=$(find . -maxdepth 3 -name "generate_cloned_story.py" -not -path './reference-vault*' | head -n 1)
-          test -n "$SCRIPT" || { echo "generate_cloned_story.py not found"; exit 1; }
-          python "$SCRIPT" kit/projects/daily_reel
+          RUN_ID="reel_$(date -u +%Y%m%d_%H%M%S)"
+          PROJ_DIR="$PWD/kit/projects/$RUN_ID"
+          echo "RUN_ID=$RUN_ID" >> $GITHUB_ENV
+          echo "PROJ_DIR=$PROJ_DIR" >> $GITHUB_ENV
+          python auto/generate_story.py "$PROJ_DIR"
 
-      - name: 5. Run Voice, Compile, Render & Post via kit/run.py
+      - name: 6. Synthesize Fast Voice (vo.wav) & Word Timestamps (words.json)
         env:
-          BLENDER: /usr/bin/blender
+          VOICE_ENGINE: ${{ github.event.inputs.voice_engine || 'kokoro' }}
+          VOICE_TEMPO: ${{ github.event.inputs.voice_tempo || '1.45' }}
+          ELEVENLABS_API_KEY: ${{ secrets.ELEVENLABS_API_KEY }}
+          ELEVENLABS_VOICE_ID: ${{ secrets.ELEVENLABS_VOICE_ID }}
+          VOICE_SPEED: "1.20"
         run: |
-          xvfb-run -a python kit/run.py kit/projects/daily_reel voice compile render post
+          python auto/elevenlabs_voice.py "$PROJ_DIR"
+          test -s "$PROJ_DIR/vo.wav"
+          test -s "$PROJ_DIR/words.json"
 
-      - name: 6. Upload Finished MP4 Reel & Metadata Artifact
+      - name: 7. Compile 3D Scene & Bake Full Colors for Fast Workbench CPU Render
+        run: |
+          $BLENDER -b --factory-startup -P kit/blox/compile.py -- "$PROJ_DIR"
+          if [ ! -f "$PROJ_DIR/scene.blend" ]; then
+            echo "[WARN] Custom places failed to compile; falling back to built-in sets..."
+            python - << 'EOF'
+          import json, os
+          p = os.path.join(os.environ["PROJ_DIR"], "timed.json")
+          d = json.load(open(p))
+          d.pop("places", None)
+          d.pop("things", None)
+          valid_sets = {"Street","Kitchen","Gym","MusicRow","TownPool","Bedroom","Hallway","Classroom","LivingRoom","Store","Office","Bathroom","Park","Backyard","Playground"}
+          for idx, sh in enumerate(d.get("shots", [])):
+              if sh.get("set") not in valid_sets:
+                  sh["set"] = ["Street","Park","Classroom","Store","Office","LivingRoom"][idx % 6]
+          json.dump(d, open(p, "w"), indent=2)
+          EOF
+            $BLENDER -b --factory-startup -P kit/blox/compile.py -- "$PROJ_DIR"
+          fi
+          test -s "$PROJ_DIR/scene.blend"
+
+          cat << 'EOF' > /tmp/cpu_opt.py
+          import bpy
+
+          colored_count = 0
+          for mat in bpy.data.materials:
+              if mat.use_nodes and mat.node_tree:
+                  for node in mat.node_tree.nodes:
+                      if node.type == "BSDF_PRINCIPLED":
+                          base_in = node.inputs.get("Base Color")
+                          if base_in and not base_in.is_linked:
+                              col = list(base_in.default_value)
+                              mat.diffuse_color = (col[0], col[1], col[2], 1.0)
+                              colored_count += 1
+                              break
+
+          s = bpy.context.scene
+          s.render.engine = "BLENDER_WORKBENCH"
+          s.render.resolution_percentage = 75
+          s.display.shading.light = "STUDIO"
+          s.display.shading.color_type = "MATERIAL"
+          s.display.shading.show_shadows = True
+          s.display.shading.shadow_intensity = 0.45
+          s.display.shading.show_cavity = True
+          s.display.shading.cavity_type = "BOTH"
+          bpy.ops.wm.save_mainfile()
+          print(f"[Optimize] Baked vibrant colors onto {colored_count} materials (75% res fast Workbench)")
+          EOF
+          $BLENDER -b "$PROJ_DIR/scene.blend" --python /tmp/cpu_opt.py
+
+      - name: 8. Render All Frames Safely (Live Frame Counter + Auto-Recovery)
+        run: |
+          python - << 'EOF'
+          import json, math, os, signal, subprocess, sys, time
+
+          ep = os.environ["PROJ_DIR"]
+          dur = json.load(open(os.path.join(ep, "timed.json")))["dur"]
+          total = int(math.ceil(dur * 30))
+          frames_dir = os.path.join(ep, "frames")
+          os.makedirs(frames_dir, exist_ok=True)
+
+          print(f"[Render] Rendering {total} frames ({dur:.2f}s @ 30fps) with 2 Workbench workers...", flush=True)
+
+          def run_pass(cmd, label):
+              proc = subprocess.Popen(cmd)
+              start_t = time.time()
+              last_count = sum(1 for f in os.listdir(frames_dir) if f.endswith(".jpg"))
+              last_progress_t = start_t
+              STALL_LIMIT_SEC = 240
+
+              while proc.poll() is None:
+                  time.sleep(20)
+                  done = sum(1 for f in os.listdir(frames_dir) if f.endswith(".jpg"))
+                  now = time.time()
+                  elapsed = now - start_t
+
+                  if done > last_count:
+                      last_count = done
+                      last_progress_t = now
+
+                  pct = (done / max(total, 1)) * 100.0
+                  fpm = (done / max(elapsed, 1.0)) * 60.0
+                  rem = max(0, total - done)
+                  eta_str = f"{rem / fpm:.1f}m" if fpm > 0 else "warming up..."
+                  idle_sec = int(now - last_progress_t)
+
+                  print(
+                      f"[{label}] {done} / {total} frames ({pct:5.1f}%) | "
+                      f"Speed: {fpm:4.1f} frames/min | ETA: {eta_str} | Idle: {idle_sec}s",
+                      flush=True,
+                  )
+
+                  if idle_sec >= STALL_LIMIT_SEC:
+                      print(f"[WARN] {label} stalled for {idle_sec}s! Recovering remaining frames...", flush=True)
+                      proc.send_signal(signal.SIGTERM)
+                      time.sleep(5)
+                      proc.kill()
+                      return False
+              return proc.returncode == 0
+
+          run_pass(["python", "kit/blox/render_par.py", ep, "2"], "Pass 1")
+
+          for recovery_attempt in range(1, 4):
+              missing = [str(i) for i in range(total) if not os.path.exists(os.path.join(frames_dir, f"{i:05d}.jpg"))]
+              if not missing:
+                  break
+              print(f"[Recovery {recovery_attempt}] Rendering {len(missing)} remaining frames...", flush=True)
+              run_pass([
+                  "python", "kit/blox/render_par.py", ep, "1",
+                  "--frames", ",".join(missing), "--out", "frames"
+              ], f"Recovery {recovery_attempt}")
+
+          final_missing = [i for i in range(total) if not os.path.exists(os.path.join(frames_dir, f"{i:05d}.jpg"))]
+          if final_missing:
+              sys.exit(f"[ERROR] Still missing {len(final_missing)} frames after recovery.")
+          print(f"[Guard] All {total} / {total} frames verified on disk!", flush=True)
+          EOF
+
+      - name: 9. Strip All Watermarks/End-Card & Post-Process Final MP4
+        run: |
+          python - << 'EOF'
+          post_file = "kit/blox/post.py"
+          with open(post_file, "r", encoding="utf-8") as f:
+              src = f.read()
+          # 1. Disable end card & metadata branding
+          src = src.replace("TAG_S = 0.6", "TAG_S = 0.0")
+          src = src.replace("META = {'title': 'Made with Beta Version Blox Studio'", "META = {'title': 'Generated Reel'")
+          # 2. Remove top-right BETA VERSION wordmark
+          src = src.replace("base.alpha_composite(p, (x, y))", "pass")
+          # 3. Remove blue β. corner badge on captions
+          src = src.replace("im.alpha_composite(mp, (mx, my))", "pass")
+          with open(post_file, "w", encoding="utf-8") as f:
+              f.write(src)
+          print("[Clean] Stripped top-right watermark, β. caption badge, and end card from post.py")
+          EOF
+          python kit/blox/post.py "$PROJ_DIR"
+          OUT_MP4="$PROJ_DIR/out/${RUN_ID}.mp4"
+          test -s "$OUT_MP4"
+          ffprobe -v error -show_entries format=duration,size -of default=noprint_wrappers=1 "$OUT_MP4"
+          cp "$OUT_MP4" "$PWD/${RUN_ID}.mp4"
+          cp "$PROJ_DIR/meta.json" "$PWD/meta.json"
+
+      - name: 10. Upload MP4 as Workflow Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: blox-studio-rendered-reel-${{ github.run_number }}
+          name: ${{ env.RUN_ID }}
           path: |
-            kit/projects/daily_reel/out/daily_reel.mp4
-            kit/projects/daily_reel/timed.json
-            kit/projects/daily_reel/meta.json
-          retention-days: 14
+            ${{ env.RUN_ID }}.mp4
+            meta.json
+          retention-days: 30
+
+      - name: 11. Publish MP4 to GitHub Releases (Easy Browser Download)
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ env.RUN_ID }}
+          name: "Generated Reel — ${{ env.RUN_ID }}"
+          body_path: meta.json
+          files: ${{ env.RUN_ID }}.mp4
+
+      - name: 12. Instagram Reels Upload (Skipped While ENABLE_IG_UPLOAD=false)
+        env:
+          RELEASE_VIDEO_URL: https://github.com/${{ github.repository }}/releases/download/${{ env.RUN_ID }}/${{ env.RUN_ID }}.mp4
+          IG_USER_ID: ${{ secrets.IG_USER_ID }}
+          IG_ACCESS_TOKEN: ${{ secrets.IG_ACCESS_TOKEN }}
+        run: |
+          python auto/publish_reel.py "$PROJ_DIR"
