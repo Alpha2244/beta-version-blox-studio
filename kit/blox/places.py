@@ -33,25 +33,44 @@ from props import Prop
 
 H = S.H_ROOM
 
+_NAMED_HEX = {
+    'red': '#c83c3c', 'blue': '#3c7ab4', 'green': '#4c9a5a', 'yellow': '#e0b43c',
+    'gold': '#e6b830', 'silver': '#c4c8cc', 'white': '#f2f0eb', 'black': '#1e2024',
+    'gray': '#80848a', 'grey': '#80848a', 'brown': '#7a5236', 'wood': '#9c6e44',
+    'orange': '#e07a3c', 'purple': '#8a5aa8', 'pink': '#e08aa8', 'cyan': '#4cb4c8',
+}
 
-def _m(name, hexcol, **kw):
-    return S.flat(name, hexcol, **kw)
 
-
-def _hex(c, default):
+def _hex(c, default='#a0a0a0'):
     if not c:
         return default
-    if isinstance(c, (list, tuple)):
-        return '#%02x%02x%02x' % tuple(int(max(0, min(1, v)) * 255) for v in c[:3])
-    return c
+    if isinstance(c, (list, tuple)) and len(c) >= 3:
+        vals = [float(v) for v in c[:3]]
+        if max(vals) > 1.0:
+            vals = [v / 255.0 for v in vals]
+        return '#%02x%02x%02x' % tuple(int(max(0.0, min(1.0, v)) * 255) for v in vals)
+    if isinstance(c, str):
+        s = c.strip().lower()
+        if s in _NAMED_HEX:
+            return _NAMED_HEX[s]
+        h = s.lstrip('#')
+        if len(h) == 3 and all(ch in '0123456789abcdef' for ch in h):
+            return '#' + ''.join(ch * 2 for ch in h)
+        if len(h) >= 6 and all(ch in '0123456789abcdef' for ch in h[:6]):
+            return '#' + h[:6]
+    return default
+
+
+def _m(name, hexcol, **kw):
+    return S.flat(name, _hex(hexcol, '#a0a0a0'), **kw)
 
 
 # ------------------------------------------------------------------ prop catalogue (front faces -y before yaw)
 def bed(coll, name, loc, rotz=0.0, color='#5b7fb8', bunk=False):
     P = S.P
+    color = _hex(color, '#5b7fb8')
     p = Prop(coll, name, loc, rotz, bev=0.06)
     W = P['wood']; sheet = _m('sheet', '#e9e6df', rough=0.9); blanket = _m('blk' + color, color, rough=0.9)
-    # headboard against the wall (+y), bed runs towards the camera
     p.boxr(W, -2.6, 2.6, -4.2, 4.2, 0.4, 1.4)
     for sx in (-2.4, 2.4):
         for sy in (-4.0, 4.0):
@@ -90,7 +109,8 @@ def nightstand(coll, name, loc, rotz=0.0, lamp=True):
 def desk(coll, name, loc, rotz=0.0, computer=True, color=None):
     P = S.P
     p = Prop(coll, name, loc, rotz, bev=0.04)
-    top = _m('desk' + color, color) if color else P['wood']
+    c_hex = _hex(color, '') if color else ''
+    top = _m('desk' + c_hex, c_hex) if c_hex else P['wood']
     p.boxr(top, -2.6, 2.6, -1.2, 1.2, 2.6, 2.85)
     for sx in (-2.4, 2.4):
         p.boxr(top, sx - 0.15, sx + 0.15, -1.1, 1.1, 0, 2.6)
@@ -122,7 +142,8 @@ def office_chair(coll, name, loc, rotz=0.0):
 def wardrobe(coll, name, loc, rotz=0.0, color=None):
     P = S.P
     p = Prop(coll, name, loc, rotz, bev=0.05)
-    m = _m('wardrobe' + color, color) if color else P['wood']
+    c_hex = _hex(color, '') if color else ''
+    m = _m('wardrobe' + c_hex, c_hex) if c_hex else P['wood']
     p.boxr(m, -2.4, 2.4, -1.2, 1.2, 0, 9.0)
     p.box(P['trimdark'], (0.06, 0.05, 8.2), (0, -1.22, 4.6))
     for sx in (-0.35, 0.35):
@@ -151,6 +172,7 @@ def bookshelf(coll, name, loc, rotz=0.0, w=4.4, h=8.0):
 
 
 def sofa(coll, name, loc, rotz=0.0, color='#7a5a8c', w=7.0):
+    color = _hex(color, '#7a5a8c')
     p = Prop(coll, name, loc, rotz, bev=0.15)
     c = _m('sofa' + color, color, rough=0.9, var=0.08)
     c2 = _m('cushion' + color, color, rough=0.95, var=0.14)
@@ -209,6 +231,7 @@ def floor_lamp(coll, name, loc, rotz=0.0):
 
 
 def rug(coll, name, loc, rotz=0.0, color='#8a5a50', w=8.0, d=5.0):
+    color = _hex(color, '#8a5a50')
     p = Prop(coll, name, loc, rotz, bev=0.0)
     p.boxr(_m('rug' + color, color, rough=0.97, var=0.18), -w / 2, w / 2, -d / 2, d / 2, 0.0, 0.05)
     p.boxr(_m('rugedge', '#e2d6bd', rough=0.97), -w / 2 + 0.4, w / 2 - 0.4, -d / 2 + 0.4, d / 2 - 0.4, 0.05, 0.07)
@@ -218,7 +241,7 @@ def rug(coll, name, loc, rotz=0.0, color='#8a5a50', w=8.0, d=5.0):
 
 
 def poster(coll, name, loc, rotz=0.0, color='#c8643c', brand=None, w=2.4, z=7.0):
-    """Wall poster at height z (loc = the wall point, front faces -y). brand='P1'|'P2'|'P3'|'AD' prints brand art."""
+    color = _hex(color, '#c8643c')
     x, y, z0 = loc
     if brand:
         return props.atlas_decal(coll, name, brand, (x, y, z0 + z), (0, 0, math.radians(rotz)), w)
@@ -231,6 +254,7 @@ def poster(coll, name, loc, rotz=0.0, color='#c8643c', brand=None, w=2.4, z=7.0)
 
 
 def picture(coll, name, loc, rotz=0.0, color='#a88f6a', w=3.0, z=7.5):
+    color = _hex(color, '#a88f6a')
     x, y, z0 = loc
     P = S.P
     p = Prop(coll, name, (x, y, z0 + z), rotz, bev=0.03)
@@ -242,8 +266,8 @@ def picture(coll, name, loc, rotz=0.0, color='#a88f6a', w=3.0, z=7.5):
 
 
 def door(coll, name, loc, rotz=0.0, color='#8a6a4c', open=False, beyond='#2a2422', sign=None):
-    """A standing door in a frame (put it against a wall). open=True: the door is swung in and you see `beyond`
-    (a glow colour, e.g. a bedroom's warm light '#ffcf8a', a dark void '#0a0a10', a sky '#9cc8f0')."""
+    color = _hex(color, '#8a6a4c')
+    beyond = _hex(beyond, '#2a2422')
     P = S.P
     p = Prop(coll, name, loc, rotz, bev=0.04)
     leaf = _m('door' + color, color, rough=0.55, var=0.1)
@@ -260,7 +284,8 @@ def door(coll, name, loc, rotz=0.0, color='#8a6a4c', open=False, beyond='#2a2422
             p.boxr(leaf, -1.5, 1.5, -0.2, -0.12, z0, z1)
         p.cyl(P['metal'], 0.16, 0.35, (1.3, -0.3, 3.7), axis='Y', seg=12)
     if sign:
-        p.boxr(_m('doorsign' + sign, sign, rough=0.6), -0.7, 0.7, -0.35, -0.3, 6.0, 6.8)
+        scol = _hex(sign, '#d8d8d8')
+        p.boxr(_m('doorsign' + scol, scol, rough=0.6), -0.7, 0.7, -0.35, -0.3, 6.0, 6.8)
     return p.finish()
 
 
@@ -278,6 +303,7 @@ def school_desk(coll, name, loc, rotz=0.0):
 
 
 def whiteboard(coll, name, loc, rotz=0.0, w=12.0, board='#eef1ef', z=4.0):
+    board = _hex(board, '#eef1ef')
     P = S.P
     x, y, z0 = loc
     p = Prop(coll, name, (x, y, z0 + z), rotz, bev=0.03)
@@ -296,6 +322,7 @@ def whiteboard(coll, name, loc, rotz=0.0, w=12.0, board='#eef1ef', z=4.0):
 
 
 def lockers(coll, name, loc, rotz=0.0, n=5, color='#4f6f9a'):
+    color = _hex(color, '#4f6f9a')
     P = S.P
     p = Prop(coll, name, loc, rotz, bev=0.03)
     c = _m('locker' + color, color, rough=0.45, metal=0.4, var=0.06)
@@ -310,6 +337,7 @@ def lockers(coll, name, loc, rotz=0.0, n=5, color='#4f6f9a'):
 
 
 def counter(coll, name, loc, rotz=0.0, w=8.0, register=True, color='#5d6f62'):
+    color = _hex(color, '#5d6f62')
     P = S.P
     p = Prop(coll, name, loc, rotz, bev=0.04)
     p.boxr(_m('counterfront' + color, color, rough=0.6), -w / 2, w / 2, -1.3, 1.3, 0, 3.4)
@@ -326,7 +354,6 @@ GOODS = ['#c8463c', '#e0b43c', '#3c7ab4', '#4c9a5a', '#e07a3c', '#8a5aa8', '#e8e
 
 
 def store_shelf(coll, name, loc, rotz=0.0, w=8.0, h=7.0):
-    P = S.P
     p = Prop(coll, name, loc, rotz, bev=0.03)
     sh = _m('storeshelf', '#d9dcdf', rough=0.45, metal=0.3)
     p.boxr(sh, -w / 2, w / 2, 0.6, 0.8, 0, h)
@@ -353,7 +380,6 @@ def cooler(coll, name, loc, rotz=0.0, w=6.0):
     P = S.P
     p = Prop(coll, name, loc, rotz, bev=0.04)
     p.boxr(P['white'], -w / 2, w / 2, -1.2, 1.2, 0, 8.5)
-    glass = S.P['shopglass']
     p.boxr(_m('coolerglow', '#dfefff', rough=0.3, emit_col='#e8f4ff', drv=('0.8+prac*2', ['prac'])),
            -w / 2 + 0.3, w / 2 - 0.3, 1.0, 1.1, 0.6, 7.8)
     rnd = random.Random(name)
@@ -373,7 +399,8 @@ def cooler(coll, name, loc, rotz=0.0, w=6.0):
 def table(coll, name, loc, rotz=0.0, w=3.0, d=2.0, color=None):
     P = S.P
     p = Prop(coll, name, loc, rotz, bev=0.04)
-    m = _m('table' + color, color) if color else P['wood']
+    c_hex = _hex(color, '') if color else ''
+    m = _m('table' + c_hex, c_hex) if c_hex else P['wood']
     p.boxr(m, -w / 2, w / 2, -d / 2, d / 2, 2.35, 2.6)
     for lx in (-w / 2 + 0.25, w / 2 - 0.25):
         for ly in (-d / 2 + 0.25, d / 2 - 0.25):
@@ -416,6 +443,7 @@ def bush(coll, name, loc, rotz=0.0, s=1.0):
 
 
 def fence(coll, name, loc, rotz=0.0, w=12.0, color='#e8e2d6'):
+    color = _hex(color, '#e8e2d6')
     p = Prop(coll, name, loc, rotz, bev=0.03)
     c = _m('fence' + color, color, rough=0.7, grime=0.2)
     x = -w / 2
@@ -459,7 +487,8 @@ def slide(coll, name, loc, rotz=0.0):
 
 
 def house(coll, name, loc, rotz=0.0, color='#c9b79c', roof='#7d4a42', w=14.0):
-    """A simple house facade + roof for outdoor backdrops (front faces -y)."""
+    color = _hex(color, '#c9b79c')
+    roof = _hex(roof, '#7d4a42')
     P = S.P
     p = Prop(coll, name, loc, rotz, bev=0.05)
     wall = _m('house' + color, color, rough=0.8, var=0.08, grime=0.2)
@@ -514,7 +543,6 @@ def _wrap(fn, **fixed):
 
 
 CATALOG = {
-    # bedroom / home
     'bed': bed, 'bunk_bed': _wrap(bed, bunk=True), 'nightstand': nightstand, 'wardrobe': wardrobe,
     'desk': desk, 'office_chair': office_chair, 'bookshelf': bookshelf, 'sofa': sofa, 'armchair': armchair,
     'coffee_table': coffee_table, 'tv': tv, 'floor_lamp': floor_lamp, 'rug': rug, 'poster': poster,
@@ -522,11 +550,9 @@ CATALOG = {
     'toilet': toilet, 'bathtub': bathtub, 'mirror': mirror,
     'clock': lambda coll, name, loc, rotz=0.0, z=9.0, **kw: props.wall_clock(coll, name, (loc[0], loc[1], loc[2] + z), rotz),
     'shelves': props.shelves, 'fridge': props.fridge, 'stove': props.stove, 'sink_unit': props.sink_unit,
-    # school / office / store
     'school_desk': school_desk, 'whiteboard': whiteboard,
     'chalkboard': _wrap(whiteboard, board='#2f4a3c'), 'lockers': lockers, 'counter': counter,
     'store_shelf': store_shelf, 'cooler': cooler,
-    # outdoor
     'tree': tree, 'bush': bush, 'fence': fence, 'swing': swing, 'slide': slide, 'house': house, 'rock': rock,
     'bench': props.bench, 'car': props.car, 'lamp_post': props.lamp_post, 'trash_can': props.trash_can,
     'wheelie_bin': props.wheelie_bin, 'hydrant': props.hydrant, 'box': props.cardboard_box, 'crate': props.crate,
@@ -534,24 +560,17 @@ CATALOG = {
 
 # ------------------------------------------------------------------ the story's own things (blocky, from parts)
 _TOPS = {}
-SIZES = {}   # (place, anchor) -> height of a story thing, for 'ins' framing
+SIZES = {}
 
 
 def _thing(parts):
-    """A story object made only of chunky parts: block, tube, cone, ball. Coarse on purpose (Roblox parts, not models).
-    part = [shape, colour, size..., [x, y, z]] (+ optional {options}); x/y/z is the part's centre, the prop's front is -y.
-      ['block', '#c83c3c', [w, d, h], [x, y, z]]
-      ['tube',  '#d8d8d8', r, h, [x, y, z]]          upright; {'axis': 'X'} or 'Y' lays it down
-      ['cone',  '#e8e2d6', r, h, [x, y, z]]          point up; {'r2': 0.3} for a cut cone; {'flip': True} points down
-      ['ball',  '#5f9a3c', r, [x, y, z]]             {'scale': [1, 1, 0.6]} to squash it
-    options on any part: 'glow': 0..5 (lights up), 'metal': true, 'tilt': [rx, ry, rz] degrees,
-    'main': true (a prop's {'color': ...} option recolours this part)."""
     def build(coll, name, loc, rotz=0.0, s=1.0, color=None):
         p = Prop(coll, name, loc, rotz, bev=0.06 * s)
         for it in parts:
             it = list(it)
             o = it.pop() if isinstance(it[-1], dict) else {}
-            shape, col = it[0], (color if color and o.get('main') else _hex(it[1], '#a0a0a0'))
+            shape = it[0]
+            col = _hex(color, '#a0a0a0') if (color and o.get('main')) else _hex(it[1], '#a0a0a0')
             c = Vector(it[-1]) * s
             gl = float(o.get('glow', 0)); mt = bool(o.get('metal'))
             m = _m(f'thing{col}{gl}{mt}', col, rough=0.35 if mt else 0.8, metal=0.8 if mt else 0.0,
@@ -573,14 +592,12 @@ def _thing(parts):
 
 
 def register_things(things):
-    """Add the story's own things (timed.json 'things': {name: [parts]}) to the prop catalogue."""
     for nm, parts in (things or {}).items():
         CATALOG[nm] = _thing(parts)
         tops = [pt[-2][2] if isinstance(pt[-1], dict) else pt[-1][2] for pt in parts if len(pt) >= 3]
         _TOPS[nm] = (max(tops) if tops else 2.0) + 0.5
 
 
-# rough footprints (half width x, half depth y) before yaw, for the clear-zone warning
 _FOOT = {'bed': (2.7, 4.4), 'bunk_bed': (2.7, 4.4), 'desk': (2.6, 1.2), 'sofa': (3.5, 1.5), 'armchair': (1.7, 1.5),
          'wardrobe': (2.4, 1.2), 'bookshelf': (2.2, 0.8), 'tv': (3.5, 1.0), 'counter': (4.0, 1.5),
          'store_shelf': (4.0, 0.9), 'cooler': (3.0, 1.2), 'lockers': (4.0, 0.8), 'coffee_table': (2.0, 1.0),
@@ -591,6 +608,7 @@ _FLAT = {'rug', 'poster', 'picture', 'whiteboard', 'chalkboard', 'mirror', 'cloc
 
 # ------------------------------------------------------------------ floors / grounds
 def _floor_mat(kind, color):
+    color = _hex(color, '#7d8a99')
     if kind == 'tiles':
         return S.pbr('pl_tiles', 'floor_tiles_06', 5.0, tint='#e8e2d6', sat=0.35, val=1.25, grime=0.2, floor=True,
                      nstr=0.6)
@@ -641,7 +659,7 @@ def _props(coll, name, O, spec, A):
         count[typ] = count.get(typ, 0) + 1
         an = opts.pop('name', typ if count[typ] == 1 else f'{typ}{count[typ]}')
         fx, fy = _FOOT.get(typ, (1.0, 1.0))
-        if round(abs(yaw) / 90) % 2 == 1: fx, fy = fy, fx   # turned sideways
+        if round(abs(yaw) / 90) % 2 == 1: fx, fy = fy, fx
         if typ not in _FLAT and abs(x) - fx < 7 and -4 < y + fy and y - fy < 3 and not opts.pop('in_clear', False):
             print(f'[places] {name}: {typ} at ({x}, {y}) is in the actors\' clear zone (|x|<7, -4<y<3); '
                   f'move it, or add {{"in_clear": true}} if actors use it')
@@ -653,7 +671,7 @@ def _props(coll, name, O, spec, A):
             CATALOG[typ](coll, f'{name}.{an}', W + Vector((x, y, 0)), yaw)
         top = {'door': 4.0, 'bed': 2.4, 'desk': 3.4, 'whiteboard': 6.0, 'chalkboard': 6.0, 'poster': 7.0,
                'picture': 7.5, 'tv': 4.5, 'counter': 3.8, 'swing': 3.0, 'slide': 4.0}.get(typ, _TOPS.get(typ, 2.6))
-        if typ in _TOPS:   # the story's own things: aim at the middle, and let an 'ins' shot frame all of it
+        if typ in _TOPS:
             A[an] = (x, y, top / 2); SIZES[(name, an)] = top
         else:
             A[an] = (x, y, top)
@@ -663,7 +681,7 @@ def room(b, coll, O, name, spec):
     P = S.P
     wall = _hex(spec.get('wall'), '#c9c2b2')
     wm = S.pbr('pl_wall' + wall, 'painted_plaster_wall', 6.0, paint=wall, paint_keep=0.25, grime=0.2)
-    lower = spec.get('lower')
+    lower = _hex(spec.get('lower'), '') if spec.get('lower') else None
     lm = S.pbr('pl_lower' + lower, 'plywood', 3.0, paint=lower, paint_keep=0.2, grime=0.15) if lower else None
     fk = spec.get('floor', 'wood'); fc = _hex(spec.get('floor_color'), '#7d8a99' if fk == 'carpet' else '#3b3d40')
     fm = _floor_mat(fk, fc)
@@ -678,7 +696,7 @@ def room(b, coll, O, name, spec):
     if spec.get('side_window'):
         S._window(b, -8.0, 7.0, 6.0, 5.0, 13.85, card, axis='X')
         wins.append(((13.3, -8.0, 7.0), (0, -8, 2.5), 5.6, 4.6))
-    if not wins:   # windowless rooms still need a soft daylight source from the camera side
+    if not wins:
         wins.append(((0, -20, 9.0), (0, 0, 3.0), 10.0, 6.0))
     if spec.get('light', 'warm') == 'panel':
         ceil = [((-5.0, -2.0, H - 0.4), 'AREA', 520), ((5.0, -2.0, H - 0.4), 'AREA', 520), ((0, 4.0, H - 0.4), 'AREA', 420)]
