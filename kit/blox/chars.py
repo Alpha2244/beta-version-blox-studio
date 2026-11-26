@@ -1,6 +1,6 @@
 """Roblox-look blocky characters for Blender 5.x (rigid parts parented to bones).
 
-API (see bottom of file docstring for details):
+API:
   make_char(name, spec) -> armature
   place(arm, frame, loc, yaw_deg)
   pose(arm, frame, anim, phase=0.0, amount=1.0)
@@ -12,8 +12,12 @@ Walk: 1.0 s cycle, stride 2.6*height per cycle. Run: 0.6 s cycle, stride 4.0*hei
 import bpy, bmesh, math
 from mathutils import Matrix, Vector, Euler, Quaternion
 
-ANIMS = ['idle', 'talk', 'walk', 'run', 'point', 'shrug', 'shock', 'scared', 'cheer', 'eat',
-         'cross_arms', 'think', 'sad', 'angry', 'wave', 'sit', 'facepalm']
+ANIMS = [
+    'idle', 'talk', 'walk', 'run', 'point', 'shrug', 'shock', 'scared', 'cheer', 'eat',
+    'cross_arms', 'think', 'sad', 'angry', 'wave', 'sit', 'facepalm',
+    'hold_hands', 'hold_hands_L', 'hold_hands_R',
+    'nod', 'headshake', 'flinch', 'slump', 'jump_joy', 'surrender', 'what', 'clap',
+]
 EXPRS = ['neutral', 'smile', 'grin', 'laugh', 'shock', 'scared', 'sad', 'worried', 'angry',
          'smug', 'think', 'blink']
 VISEMES = ['A', 'O', 'E', 'M']
@@ -47,8 +51,34 @@ SHOULDER_Z, L_UP, L_LO = 3.75, 0.75, 0.7
 HIP_Z = 1.75
 
 
-# ---------------------------------------------------------------- materials
-def _mat(name, rgb, rough=0.42, sheen=0.0, emit=False):
+# ---------------------------------------------------------------- color & materials
+def _parse_rgb(col, default=(0.8, 0.8, 0.8)):
+    """Accepts '#rrggbb', '#rgb', (r,g,b) in 0..1 or 0..255, and returns clean (r,g,b) floats in 0..1."""
+    if col is None:
+        return default
+    if isinstance(col, str):
+        s = col.strip().lstrip('#')
+        if len(s) == 3:
+            s = ''.join(ch * 2 for ch in s)
+        if len(s) >= 6:
+            try:
+                return (
+                    int(s[0:2], 16) / 255.0,
+                    int(s[2:4], 16) / 255.0,
+                    int(s[4:6], 16) / 255.0,
+                )
+            except ValueError:
+                return default
+        return default
+    if isinstance(col, (list, tuple)) and len(col) >= 3:
+        vals = [float(col[0]), float(col[1]), float(col[2])]
+        if max(vals) > 1.0:
+            vals = [v / 255.0 for v in vals]
+        return tuple(max(0.0, min(1.0, v)) for v in vals)
+    return default
+
+
+def _mat(name, rgb, rough=0.45, sheen=0.0, emit=False, coat=0.0, sss=0.0):
     m = bpy.data.materials.get(name)
     if m:
         return m
@@ -57,8 +87,8 @@ def _mat(name, rgb, rough=0.42, sheen=0.0, emit=False):
     b = m.node_tree.nodes.get('Principled BSDF')
     b.inputs['Base Color'].default_value = (*rgb, 1)
     b.inputs['Roughness'].default_value = rough
-    for k, v in (('Specular IOR Level', 0.35), ('Coat Weight', 0.12), ('Coat Roughness', 0.3),
-                 ('Sheen Weight', sheen), ('Subsurface Weight', 0.0)):
+    for k, v in (('Specular IOR Level', 0.28), ('Coat Weight', coat), ('Coat Roughness', 0.35),
+                 ('Sheen Weight', sheen), ('Subsurface Weight', sss)):
         if k in b.inputs:
             b.inputs[k].default_value = v
     if emit:
@@ -71,8 +101,9 @@ def _lin(c):
     return ((c + 0.055) / 1.055) ** 2.4 if c > 0.04045 else c / 12.92
 
 
-def _cmat(rgb, tag, **kw):
-    """rgb given as display (sRGB) colour, like a colour picker"""
+def _cmat(col, tag, **kw):
+    """col given as sRGB tuple/list or '#hex' string; converts cleanly to linear for Blender."""
+    rgb = _parse_rgb(col)
     return _mat('rbx_%s_%.3f_%.3f_%.3f' % (tag, *rgb), tuple(_lin(c) for c in rgb), **kw)
 
 
@@ -104,7 +135,6 @@ def _rbox(name, center, size, mat, bevel=0.1, seg=3):
 
 
 def _join_meshes(name, parts):
-    """parts: list of (bmesh-builder-callable(bm)) -> single object; each builder adds geometry."""
     bm = bmesh.new()
     for f in parts:
         f(bm)
@@ -170,7 +200,6 @@ def _obj(name, me, mat, smooth=True, ang=35):
 
 def _head_mesh(name, mat):
     bm = bmesh.new()
-    # classic Roblox head: cylinder with strongly rounded top/bottom, slight barrel bulge
     bmesh.ops.create_cone(bm, cap_ends=True, segments=48, radius1=HEAD_R, radius2=HEAD_R, depth=HEAD_H)
     cap_edges = [e for e in bm.edges if abs(e.verts[0].co.z - e.verts[1].co.z) < 1e-6]
     bmesh.ops.bevel(bm, geom=cap_edges, offset=HEAD_BEV, segments=6, affect='EDGES', profile=0.5)
@@ -201,7 +230,6 @@ def _sq(u):
 
 
 def _eye(side, kind='oval', w=0.06, h=0.085, dx=0.0, dy=0.0, lid=None, lslant=0.0):
-    """returns (eye strip, glint strip). u=+1 is the outer corner."""
     cx, cy = side * EYE_X + side * dx * 0 + dx, EYE_Y + dy
     top, bot = [], []
     for u in _us():
@@ -215,11 +243,10 @@ def _eye(side, kind='oval', w=0.06, h=0.085, dx=0.0, dy=0.0, lid=None, lslant=0.
             c = h * 0.9 * (1 - u * u) - h * 0.2
             th = 0.026 * (0.55 + 0.45 * s)
             t, b = c + th, c - th
-        else:  # line
+        else:
             th = 0.017 * (0.6 + 0.4 * s)
             t, b = th, -th
         top.append((x, cy + t)); bot.append((x, cy + b))
-    # glint (viewer upper-right, same for both eyes)
     gtop, gbot = [], []
     open_ = kind == 'oval'
     g = 0.022 if open_ else 0.0
@@ -248,26 +275,25 @@ def _mouth(kind, w=0.13, cx=0.0, cy=MOUTH_Y, a=0.0, d=0.0, t=0.018):
     for u in _us():
         x = cx + u * w
         s = _sq(u)
-        if kind == 'line':      # a = slant
+        if kind == 'line':
             c = a * u; th = t * (0.6 + 0.4 * s); T, B = c + th, c - th
-        elif kind == 'arc':     # a = corner lift (+ smile / - frown)
+        elif kind == 'arc':
             c = a * u * u - a * 0.35; th = t * (0.5 + 0.5 * s); T, B = c + th, c - th
-        elif kind == 'D':       # d = depth, a = corner lift
+        elif kind == 'D':
             T = a * u * u + 0.012 * s; B = a * u * u - d * s
-        elif kind == 'O':       # d = half height
+        elif kind == 'O':
             T, B = d * s, -d * s
-        elif kind == 'open':    # a = top half, d = bottom half
+        elif kind == 'open':
             T, B = a * s, -d * s
         elif kind == 'wave':
             c = a * math.sin(2.5 * math.pi * u); th = t * (0.6 + 0.4 * s); T, B = c + th, c - th
-        elif kind == 'lop':     # one-sided smirk
+        elif kind == 'lop':
             c = a * ((u + 1) / 2) ** 2 - a * 0.3; th = t * (0.55 + 0.45 * s); T, B = c + th, c - th
         top.append((x, cy + T)); bot.append((x, cy + B))
     return top, bot
 
 
 def _expr_shapes(e):
-    """returns dict region -> list of strips. regions: eyes (eyeL, eyeR, glintL, glintR), brows, mouth"""
     E = lambda **k: (_eye(1, **k), _eye(-1, **k))
     if e == 'neutral':
         eyes = E(); br = dict(); m = _mouth('line', w=0.11)
@@ -327,7 +353,7 @@ def _wrap(p, eps):
     x, z = p[0] * FACE_SX, p[1] * FACE_SY
     zs = HEAD_H / 2 - HEAD_BEV
     r = HEAD_R
-    if abs(z) > zs:  # follow the rounded top/bottom (circular bevel profile)
+    if abs(z) > zs:
         dz = min(abs(z) - zs, HEAD_BEV * 0.97)
         r = HEAD_R - HEAD_BEV + math.sqrt(HEAD_BEV ** 2 - dz * dz)
         eps = eps / max(0.25, (r - HEAD_R + HEAD_BEV) / HEAD_BEV)
@@ -337,7 +363,6 @@ def _wrap(p, eps):
 
 
 def _flatten(shapes):
-    """ordered list of (point2d, eps) for the mesh verts"""
     out = []
     for reg in REGION_ORDER:
         eps = EPS_GLINT if reg == 'glint' else EPS_FACE
@@ -369,7 +394,6 @@ def _face_object(name, mats):
     ob = bpy.data.objects.new(name, me)
     bpy.context.scene.collection.objects.link(ob)
     ob.shape_key_add(name='Basis', from_mix=False)
-    # region index ranges
     ranges, k = {}, 0
     for reg in REGION_ORDER:
         n = len(base[reg]) * 2 * NCOL
@@ -426,15 +450,11 @@ def _glasses(name, mat):
                     vs.append(bm.verts.new(_wrap((x, y), e)))
         for i in range(n - 1):
             a = [vs[4 * i + j] for j in range(4)]; b = [vs[4 * (i + 1) + j] for j in range(4)]
-            bm.faces.new((a[1], b[1], b[3], a[3]))   # front
-            bm.faces.new((a[0], a[2], b[2], b[0]))   # back
-            bm.faces.new((a[0], b[0], b[1], a[1]))   # bottom
-            bm.faces.new((a[2], a[3], b[3], b[2]))   # top
-    # temples
+            bm.faces.new((a[1], b[1], b[3], a[3]))
+            bm.faces.new((a[0], a[2], b[2], b[0]))
+            bm.faces.new((a[0], b[0], b[1], a[1]))
+            bm.faces.new((a[2], a[3], b[3], b[2]))
     for side in (1, -1):
-        x = side * (EYE_X + 0.12)
-        p = _wrap((x, EYE_Y + 0.07), eps + 0.015)
-        tmp_c = Vector((side * (HEAD_R + 0.03), (p.y - HEAD_C.y + 0.15) / 2 - 0.05, 0)) + HEAD_C
         _add_rbox(bm, (side * (HEAD_R * 0.93 + 0.03), -0.2, HEAD_C.z + EYE_Y + 0.06), (0.03, 0.5, 0.03), bevel=0.01, seg=1)
     me = bpy.data.meshes.new(name)
     bm.to_mesh(me); bm.free()
@@ -451,15 +471,15 @@ def _hair(name, style, mat, mat2=None):
     bm = bmesh.new()
 
     def base(top=0.4):
-        _add_rbox(bm, P(0, 0.03, 0.66), (1.36, 1.34, 0.4), bevel=0.16, seg=3)            # crown block
-        _add_rbox(bm, P(0, 0.42, 0.22), (1.34, 0.5, 0.78), bevel=0.15, seg=3)            # back
+        _add_rbox(bm, P(0, 0.03, 0.66), (1.36, 1.34, 0.4), bevel=0.16, seg=3)
+        _add_rbox(bm, P(0, 0.42, 0.22), (1.34, 0.5, 0.78), bevel=0.15, seg=3)
         for s in (1, -1):
-            _add_rbox(bm, P(s * 0.6, 0.12, 0.33), (0.18, 0.95, 0.58), bevel=0.07, seg=2)  # sides
-        _add_rbox(bm, P(0.08, -0.6, 0.55), (1.1, 0.16, 0.16), bevel=0.07, seg=2)        # fringe edge
+            _add_rbox(bm, P(s * 0.6, 0.12, 0.33), (0.18, 0.95, 0.58), bevel=0.07, seg=2)
+        _add_rbox(bm, P(0.08, -0.6, 0.55), (1.1, 0.16, 0.16), bevel=0.07, seg=2)
 
     if style == 'short':
         base()
-        for i, x in enumerate((-0.42, -0.14, 0.14, 0.42)):  # chunky tufts on top
+        for i, x in enumerate((-0.42, -0.14, 0.14, 0.42)):
             _add_rbox(bm, P(x, -0.38 + 0.05 * (i % 2), 0.82), (0.36, 0.42, 0.18), bevel=0.08, seg=2,
                       rot=Euler((math.radians(-15), 0, math.radians(8 * (i - 1.5)))))
     elif style == 'curly':
@@ -528,8 +548,9 @@ def _parent(ob, arm, bname):
     ob.matrix_basis = mw
 
 
-def _shade_col(rgb, f):
-    return tuple(max(0, min(1, c * f)) for c in rgb)
+def _shade_col(col, f):
+    rgb = _parse_rgb(col)
+    return tuple(max(0.0, min(1.0, c * f)) for c in rgb)
 
 
 # ---------------------------------------------------------------- shirt prints (Beta Version)
@@ -558,7 +579,7 @@ def _print_mat(plate):
     b = nt.nodes.get('Principled BSDF'); tx = nt.nodes.new('ShaderNodeTexImage'); tx.image = _wm_image()
     tx.interpolation = 'Cubic'
     b.inputs['Roughness'].default_value = 0.6
-    if plate:  # light print on a dark printed patch: reads on any shirt colour
+    if plate:
         mx = nt.nodes.new('ShaderNodeMix'); mx.data_type = 'RGBA'
         mx.inputs[6].default_value = (0.012, 0.016, 0.03, 1)
         nt.links.new(tx.outputs['Alpha'], mx.inputs[0]); nt.links.new(tx.outputs['Color'], mx.inputs[7])
@@ -571,7 +592,6 @@ def _print_mat(plate):
 
 
 def _print_plane(name, center, width, back=False, plate=True):
-    """Flat print on a body surface. Front faces -Y; back=True faces +Y. Aspect follows the wordmark."""
     im = _wm_image(); w = width; h = width * im.size[1] / max(1, im.size[0])
     if plate: w, h = w * 1.08, h * 1.25
     me = bpy.data.meshes.new(name); x0, x1, z0, z1 = -w / 2, w / 2, -h / 2, h / 2
@@ -589,11 +609,11 @@ def _print_plane(name, center, width, back=False, plate=True):
 
 def make_char(name, spec):
     sc = bpy.context.scene
-    skin = spec.get('skin', (1.0, 0.8, 0.6))
-    shirt = spec.get('shirt', (0.2, 0.5, 0.9))
-    pants = spec.get('pants', (0.15, 0.2, 0.5))
-    shoes = spec.get('shoes', (0.12, 0.12, 0.14))
-    hcol = spec.get('hair_color', (0.3, 0.18, 0.08))
+    skin = _parse_rgb(spec.get('skin'), (0.96, 0.76, 0.61))
+    shirt = _parse_rgb(spec.get('shirt'), (0.12, 0.45, 0.95))
+    pants = _parse_rgb(spec.get('pants'), (0.12, 0.16, 0.25))
+    shoes = _parse_rgb(spec.get('shoes'), (0.12, 0.12, 0.14))
+    hcol = _parse_rgb(spec.get('hair_color'), (0.20, 0.13, 0.08))
     extras = spec.get('extras', [])
     sleeves = spec.get('sleeves', 'long' if 'cardigan' in extras else 'short')
 
@@ -618,11 +638,12 @@ def make_char(name, spec):
     arm.show_in_front = False
     arm.hide_render = True
 
-    M_skin = _cmat(skin, 'skin', rough=0.4)
-    M_shirt = _cmat(shirt, 'cloth', rough=0.5, sheen=0.25)
-    M_pants = _cmat(pants, 'cloth', rough=0.5, sheen=0.25)
-    M_shoes = _cmat(shoes, 'shoe', rough=0.45)
-    M_hair = _cmat(hcol, 'hair', rough=0.5, sheen=0.3)
+    # Clean, bright Roblox-style materials (no grey Coat Weight haze on skin/cloth)
+    M_skin = _cmat(skin, 'skin', rough=0.38, coat=0.0, sss=0.06)
+    M_shirt = _cmat(shirt, 'cloth', rough=0.48, sheen=0.2, coat=0.0)
+    M_pants = _cmat(pants, 'cloth', rough=0.48, sheen=0.2, coat=0.0)
+    M_shoes = _cmat(shoes, 'shoe', rough=0.42, coat=0.08)
+    M_hair = _cmat(hcol, 'hair', rough=0.46, sheen=0.25, coat=0.05)
     parts = []
 
     def add(ob, bone, role):
@@ -649,6 +670,7 @@ def make_char(name, spec):
     fo = _face_object(name + '_face', [M_ink, M_mouth, M_glint])
     fo['rbx_role'] = 'face'
     _parent(fo, arm, 'head')
+
     # hair
     hair_style = spec.get('hair', 'short')
     if hair_style not in HAIR_STYLES:
@@ -657,6 +679,7 @@ def make_char(name, spec):
                     _cmat(spec.get('cap_color', (0.1, 0.3, 0.85)), 'cap', rough=0.5)):
         ob['rbx_role'] = 'hair'
         _parent(ob, arm, 'head')
+
     # extras
     if 'glasses' in extras:
         g = _glasses(name + '_glasses', _mat('rbx_glasses', (0.05, 0.05, 0.06), rough=0.35))
@@ -689,12 +712,15 @@ def make_char(name, spec):
         bc = _cmat(_shade_col(shirt, 0.6), 'button', rough=0.4)
         for z in (3.5, 3.15, 2.8):
             acc.append(_rbox(name + '_btn%.1f' % z, (0.27, -0.53, z), (0.08, 0.04, 0.08), bc, bevel=0.02))
+    if 'skirt' in extras:
+        sc_col = _cmat(spec.get('skirt_color', pants), 'skirt', rough=0.48)
+        acc.append(_rbox(name + '_skirt', (0, 0, 1.75), (2.06, 1.06, 0.68), sc_col, bevel=0.08))
     for ob in acc:
         ob['rbx_role'] = 'acc'
         _parent(ob, arm, 'torso')
         parts.append(ob)
 
-    # Beta Version prints: chest (unless a tie/apron/cardigan covers it), always the back, and the cap front
+    # Beta Version prints
     prints = []
     if not ({'tie', 'apron', 'cardigan'} & set(extras)):
         prints.append(_print_plane(name + '_print_chest', (0, -0.512, 3.3), 1.45))
@@ -738,8 +764,6 @@ def _R(x=0, y=0, z=0):
 
 
 def _arm_fk(side, fwd=0, out=0, elbow=0, spread=0, wrist=0):
-    """side +1 = L (+X), -1 = R. fwd: raise forward, out: raise sideways, elbow: forearm bend forward,
-    spread: forearm swing outward (+) / across body (-)."""
     s = 'L' if side > 0 else 'R'
     return {'upper_arm.' + s: _R(-fwd, -side * out, 0),
             'lower_arm.' + s: _R(-elbow, 0, side * spread),
@@ -747,7 +771,6 @@ def _arm_fk(side, fwd=0, out=0, elbow=0, spread=0, wrist=0):
 
 
 def _arm_ik(side, target, pole=(0, 0.3, -1)):
-    """two-bone IK in rest armature space. target = wrist point."""
     s = 'L' if side > 0 else 'R'
     S = Vector((1.5 * side, 0, SHOULDER_Z))
     T = Vector(target)
@@ -766,7 +789,7 @@ def _arm_ik(side, target, pole=(0, 0.3, -1)):
     if nperp.length < 1e-4:
         nperp = Vector((0, -1, 0)) - Vector((0, -1, 0)).dot(u) * u
     n = nperp.normalized()
-    Rm = Matrix((n.cross(u), -n, -u)).transposed()  # columns
+    Rm = Matrix((n.cross(u), -n, -u)).transposed()
     e = math.degrees(u.angle(f))
     return {'upper_arm.' + s: Rm, 'lower_arm.' + s: _R(-e, 0, 0), 'hand.' + s: _R()}
 
@@ -825,33 +848,31 @@ def _walk(t, run=False):
 
 def _static(anim, t):
     P, root = {}, Vector()
-    osc = math.sin(2 * math.pi * t)
     if anim == 'point':
         P.update(_arm_fk(-1, fwd=88, out=6, elbow=0))
         P.update(_arm_fk(1, fwd=3, out=4, elbow=10))
         P['torso'] = _R(2, 0, -6); P['head'] = _R(0, 0, -4)
-    elif anim == 'shrug':
+    elif anim in ('shrug', 'what'):
         for s in (1, -1):
-            P.update(_arm_fk(s, fwd=8, out=22, elbow=78, spread=40))
+            P.update(_arm_fk(s, fwd=10, out=24, elbow=78, spread=42))
         P['head'] = _R(-4, 10, 0); P['torso'] = _R(-3, 0, 0)
     elif anim == 'shock':
         for s in (1, -1):
-            P.update(_arm_fk(s, fwd=90, out=10, elbow=130, spread=30))  # hands up beside/behind head
+            P.update(_arm_fk(s, fwd=90, out=10, elbow=130, spread=30))
         P['torso'] = _R(-9, 0, 0); P['head'] = _R(-8, 0, 0)
         root = Vector((0, 0.08, 0))
     elif anim == 'scared':
         for s in (1, -1):
-            P.update(_arm_fk(s, fwd=80, out=-10, elbow=130, spread=-30))  # hands beside the head, behind face plane
-        P['torso'] = _R(6, 0, 0); P['head'] = _R(6, 0, 0)
+            P.update(_arm_fk(s, fwd=80, out=-10, elbow=130, spread=-30))
         tr = 0.6 * math.sin(2 * math.pi * 9 * t)
-        P['torso'] = _R(6 + tr, 0, tr)
+        P['torso'] = _R(6 + tr, 0, tr); P['head'] = _R(6, 0, 0)
         root = Vector((0, 0, -0.04))
-    elif anim == 'cheer':
-        pump = 0.5 + 0.5 * math.sin(2 * math.pi * 1.6 * t)
+    elif anim in ('cheer', 'jump_joy'):
+        pump = 0.5 + 0.5 * math.sin(2 * math.pi * 1.8 * t)
         for s in (1, -1):
             P.update(_arm_fk(s, fwd=12, out=150 + 12 * pump, elbow=12 + 15 * (1 - pump)))
         P['torso'] = _R(-4, 0, 0); P['head'] = _R(-10, 0, 0)
-        root = Vector((0, 0, 0.12 * pump))
+        root = Vector((0, 0, (0.35 if anim == 'jump_joy' else 0.14) * pump))
     elif anim == 'eat':
         k = 0.5 - 0.5 * math.cos(2 * math.pi * 0.7 * t)
         P.update(_arm_fk(-1, fwd=70 + 50 * k, out=20 * k, elbow=50 + 10 * k, spread=-100 + 10 * k))
@@ -865,11 +886,12 @@ def _static(anim, t):
         P.update(_arm_fk(-1, fwd=120, out=20, elbow=60, spread=-90))
         P.update(_arm_fk(1, fwd=70, out=0, elbow=60, spread=-90))
         P['head'] = _R(-6, -6, -10 + 3 * math.sin(2 * math.pi * 0.3 * t))
-    elif anim == 'sad':
+    elif anim in ('sad', 'slump'):
         for s in (1, -1):
             P.update(_arm_fk(s, fwd=6, out=1, elbow=6))
-        P['torso'] = _R(13, 0, 0); P['head'] = _R(22, 0, 0)
-        root = Vector((0, 0, -0.04))
+        P['torso'] = _R(15 if anim == 'slump' else 13, 0, 0)
+        P['head'] = _R(24 if anim == 'slump' else 22, 0, 0)
+        root = Vector((0, 0, -0.05))
     elif anim == 'angry':
         sh = math.sin(2 * math.pi * 6 * t) * 1.2
         for s in (1, -1):
@@ -889,8 +911,39 @@ def _static(anim, t):
         P.update(_arm_fk(-1, fwd=120, out=20, elbow=50, spread=-70))
         P.update(_arm_fk(1, fwd=4, out=3, elbow=10))
         P['torso'] = _R(8, 0, -6); P['head'] = _R(14, 8, -10)
+    elif anim == 'nod':
+        P, root = _idle(t, talk=False)
+        P['head'] = _R(14 * math.sin(2 * math.pi * 1.8 * t), 0, 0)
+    elif anim == 'headshake':
+        P, root = _idle(t, talk=False)
+        P['head'] = _R(0, 0, 18 * math.sin(2 * math.pi * 1.8 * t))
+    elif anim == 'flinch':
+        k = math.exp(-3.5 * (t % 1.0))
+        for s in (1, -1):
+            P.update(_arm_fk(s, fwd=55 * k, out=18 * k, elbow=85 * k))
+        P['torso'] = _R(-10 * k, 0, 0); P['head'] = _R(-12 * k, 0, 0)
+        root = Vector((0, 0.15 * k, -0.04 * k))
+    elif anim == 'surrender':
+        for s in (1, -1):
+            P.update(_arm_fk(s, fwd=15, out=145, elbow=45, spread=-15))
+        P['torso'] = _R(-4, 0, 0); P['head'] = _R(4, 0, 0)
+    elif anim == 'clap':
+        cl = 0.5 + 0.5 * math.sin(2 * math.pi * 2.5 * t)
+        for s in (1, -1):
+            P.update(_arm_fk(s, fwd=52, out=-8, elbow=55, spread=-38 - 18 * cl))
+        P['head'] = _R(-2, 0, 4 * math.sin(2 * math.pi * 1.2 * t))
+    elif anim in ('hold_hands', 'hold_hands_L', 'hold_hands_R'):
+        # Gentle walk-in-place sway while reaching inner hand across to meet partner at 2.15 studs spacing
+        P, root = _idle(t, talk=False)
+        sway = 3.0 * math.sin(2 * math.pi * 0.9 * t)
+        if anim == 'hold_hands_R':
+            P.update(_arm_fk(-1, fwd=16, out=24, elbow=16))
+            P.update(_arm_fk(1, fwd=2 + sway, out=4, elbow=8))
+        else:
+            P.update(_arm_fk(1, fwd=16, out=24, elbow=16))
+            P.update(_arm_fk(-1, fwd=2 - sway, out=4, elbow=8))
     else:
-        raise ValueError(anim)
+        P, root = _idle(t, talk=False)
     return P, root
 
 
@@ -900,7 +953,6 @@ def _pose_dict(anim, phase):
     if anim in ('walk', 'run'):
         return _walk(phase, anim == 'run')
     P, root = _static(anim, phase)
-    # breathing on top of static poses
     br = math.sin(2 * math.pi * phase / 3.2)
     if 'head' in P:
         P['head'] = _R(-0.8 * br) @ P['head']
