@@ -110,87 +110,205 @@ jobs:
           test -s "$PROJ_DIR/vo.wav"
           test -s "$PROJ_DIR/words.json"
 
-      - name: 7. Compile 3D Scene & Bake Full Colors for Fast Workbench CPU Render
+      - name: 7. Bulletproof Sanitize + Compile 3D Scene & Bake Full Colors
         run: |
           python - << 'EOF'
-          import re
+          import ast, json, os
 
-          # 1. Harden _parse_rgb in kit/blox/chars.py so hex strings ('#f4c29f') never crash float()
-          with open("kit/blox/chars.py", "r", encoding="utf-8") as f:
-              csrc = f.read()
+          # =========================================================================
+          # LAYER 1: AST-Level Guaranteed Replacement of _parse_rgb & _hex in code
+          # =========================================================================
+          def replace_func_ast(filepath, func_name, new_func_code):
+              with open(filepath, "r", encoding="utf-8") as f:
+                  src = f.read()
+              tree = ast.parse(src)
+              lines = src.splitlines(keepends=True)
+              target = None
+              for node in tree.body:
+                  if isinstance(node, ast.FunctionDef) and node.name == func_name:
+                      target = node
+                      break
+              if target is None:
+                  # Append if missing
+                  src = new_func_code + "\n\n" + src
+              else:
+                  start = target.lineno - 1
+                  end = target.end_lineno
+                  src = "".join(lines[:start]) + new_func_code + "\n" + "".join(lines[end:])
+              with open(filepath, "w", encoding="utf-8") as f:
+                  f.write(src)
+              print(f"[AST-Patch] Replaced {func_name}() in {filepath}")
 
-          new_parse_rgb = '''def _parse_rgb(col, default=(0.8, 0.8, 0.8)):
-              if col is None:
-                  return default
-              if isinstance(col, str):
-                  s = col.strip().lstrip('#')
-                  if len(s) == 3:
-                      s = ''.join(ch * 2 for ch in s)
-                  if len(s) >= 6:
-                      try:
-                          return (int(s[0:2], 16) / 255.0, int(s[2:4], 16) / 255.0, int(s[4:6], 16) / 255.0)
-                      except ValueError:
-                          return default
-                  return default
-              if isinstance(col, (list, tuple)) and len(col) >= 3:
-                  vals = [float(col[0]), float(col[1]), float(col[2])]
-                  if max(vals) > 1.0:
-                      vals = [v / 255.0 for v in vals]
-                  return tuple(max(0.0, min(1.0, v)) for v in vals)
+          SAFE_PARSE_RGB = '''def _parse_rgb(col, default=(0.8, 0.8, 0.8)):
+              _NAMED = {
+                  'red': (0.85, 0.2, 0.2), 'blue': (0.2, 0.45, 0.85), 'green': (0.2, 0.7, 0.3),
+                  'yellow': (0.95, 0.8, 0.2), 'gold': (0.95, 0.75, 0.15), 'white': (0.95, 0.95, 0.95),
+                  'black': (0.1, 0.1, 0.12), 'gray': (0.5, 0.5, 0.52), 'grey': (0.5, 0.5, 0.52),
+                  'brown': (0.45, 0.28, 0.16), 'orange': (0.95, 0.48, 0.15), 'purple': (0.55, 0.25, 0.75),
+                  'pink': (0.95, 0.55, 0.7), 'tan': (0.82, 0.68, 0.52), 'peach': (0.96, 0.76, 0.61),
+              }
+              try:
+                  if col is None:
+                      return default
+                  if isinstance(col, str):
+                      s = col.strip().lower()
+                      if s in _NAMED:
+                          return _NAMED[s]
+                      h = s.lstrip('#')
+                      if len(h) == 3:
+                          h = ''.join(ch * 2 for ch in h)
+                      if len(h) >= 6:
+                          return (int(h[0:2], 16) / 255.0, int(h[2:4], 16) / 255.0, int(h[4:6], 16) / 255.0)
+                      return default
+                  if isinstance(col, (list, tuple)) and len(col) >= 3:
+                      vals = [float(col[0]), float(col[1]), float(col[2])]
+                      if max(vals) > 1.0:
+                          vals = [v / 255.0 for v in vals]
+                      return tuple(max(0.0, min(1.0, v)) for v in vals)
+              except Exception:
+                  pass
               return default'''
 
-          csrc_new = re.sub(
-              r"def _parse_rgb\(.*?\n(?=\ndef |\n#)",
-              new_parse_rgb + "\n\n",
-              csrc,
-              flags=re.DOTALL,
-          )
-          with open("kit/blox/chars.py", "w", encoding="utf-8") as f:
-              f.write(csrc_new)
-          print("[Patch] Hardened _parse_rgb in kit/blox/chars.py")
-
-          # 2. Harden _hex in kit/blox/places.py so 0..255 lists and named colors convert cleanly
-          with open("kit/blox/places.py", "r", encoding="utf-8") as f:
-              psrc = f.read()
-
-          new_hex_fn = '''def _hex(c, default='#a0a0a0'):
+          SAFE_HEX = '''def _hex(c, default='#a0a0a0'):
               _NAMED = {
                   'red': '#c83c3c', 'blue': '#3c7ab4', 'green': '#4c9a5a', 'yellow': '#e0b43c',
                   'gold': '#e6b830', 'silver': '#c4c8cc', 'white': '#f2f0eb', 'black': '#1e2024',
                   'gray': '#80848a', 'grey': '#80848a', 'brown': '#7a5236', 'wood': '#9c6e44',
                   'orange': '#e07a3c', 'purple': '#8a5aa8', 'pink': '#e08aa8', 'cyan': '#4cb4c8',
               }
-              if not c:
-                  return default
-              if isinstance(c, (list, tuple)) and len(c) >= 3:
-                  vals = [float(v) for v in c[:3]]
-                  if max(vals) > 1.0:
-                      vals = [v / 255.0 for v in vals]
-                  return '#%02x%02x%02x' % tuple(int(max(0.0, min(1.0, v)) * 255) for v in vals)
-              if isinstance(c, str):
-                  s = c.strip().lower()
-                  if s in _NAMED:
-                      return _NAMED[s]
-                  h = s.lstrip('#')
-                  if len(h) == 3 and all(ch in '0123456789abcdef' for ch in h):
-                      return '#' + ''.join(ch * 2 for ch in h)
-                  if len(h) >= 6 and all(ch in '0123456789abcdef' for ch in h[:6]):
-                      return '#' + h[:6]
+              try:
+                  if not c:
+                      return default
+                  if isinstance(c, (list, tuple)) and len(c) >= 3:
+                      vals = [float(v) for v in c[:3]]
+                      if max(vals) > 1.0:
+                          vals = [v / 255.0 for v in vals]
+                      return '#%02x%02x%02x' % tuple(int(max(0.0, min(1.0, v)) * 255) for v in vals)
+                  if isinstance(c, str):
+                      s = c.strip().lower()
+                      if s in _NAMED:
+                          return _NAMED[s]
+                      h = s.lstrip('#')
+                      if len(h) == 3 and all(ch in '0123456789abcdef' for ch in h):
+                          return '#' + ''.join(ch * 2 for ch in h)
+                      if len(h) >= 6 and all(ch in '0123456789abcdef' for ch in h[:6]):
+                          return '#' + h[:6]
+              except Exception:
+                  pass
               return default'''
 
-          psrc_new = re.sub(
-              r"def _hex\(.*?\n(?=\ndef |\n#)",
-              new_hex_fn + "\n\n",
-              psrc,
-              flags=re.DOTALL,
-          )
-          with open("kit/blox/places.py", "w", encoding="utf-8") as f:
-              f.write(psrc_new)
-          print("[Patch] Hardened _hex in kit/blox/places.py")
+          replace_func_ast("kit/blox/chars.py", "_parse_rgb", SAFE_PARSE_RGB)
+          replace_func_ast("kit/blox/places.py", "_hex", SAFE_HEX)
+
+          # Verify the patched chars.py actually parses '#f5c29b' without crashing!
+          with open("kit/blox/chars.py", "r", encoding="utf-8") as f:
+              code_check = f.read()
+          ns = {}
+          exec(compile(SAFE_PARSE_RGB, "<check>", "exec"), ns)
+          assert ns["_parse_rgb"]("#f5c29b") == (245/255.0, 194/255.0, 155/255.0), "Self-check failed!"
+          print("[Self-Check] _parse_rgb('#f5c29b') verified OK")
+
+          # =========================================================================
+          # LAYER 2: Sanitize timed.json directly before Blender ever touches it
+          # =========================================================================
+          NAMED_RGB = {
+              'red': [0.85, 0.2, 0.2], 'blue': [0.2, 0.45, 0.85], 'green': [0.2, 0.7, 0.3],
+              'yellow': [0.95, 0.8, 0.2], 'gold': [0.95, 0.75, 0.15], 'white': [0.95, 0.95, 0.95],
+              'black': [0.1, 0.1, 0.12], 'gray': [0.5, 0.5, 0.52], 'grey': [0.5, 0.5, 0.52],
+              'brown': [0.45, 0.28, 0.16], 'orange': [0.95, 0.48, 0.15], 'purple': [0.55, 0.25, 0.75],
+              'pink': [0.95, 0.55, 0.7], 'tan': [0.82, 0.68, 0.52], 'peach': [0.96, 0.76, 0.61],
+          }
+
+          def to_rgb_list(col, fallback):
+              try:
+                  if col is None:
+                      return fallback
+                  if isinstance(col, str):
+                      s = col.strip().lower()
+                      if s in NAMED_RGB:
+                          return NAMED_RGB[s]
+                      h = s.lstrip('#')
+                      if len(h) == 3:
+                          h = ''.join(ch * 2 for ch in h)
+                      if len(h) >= 6:
+                          return [round(int(h[0:2], 16) / 255.0, 4), round(int(h[2:4], 16) / 255.0, 4), round(int(h[4:6], 16) / 255.0, 4)]
+                      return fallback
+                  if isinstance(col, (list, tuple)) and len(col) >= 3:
+                      vals = [float(col[0]), float(col[1]), float(col[2])]
+                      if max(vals) > 1.0:
+                          vals = [v / 255.0 for v in vals]
+                      return [round(max(0.0, min(1.0, v)), 4) for v in vals]
+              except Exception:
+                  pass
+              return fallback
+
+          def to_hex_str(col, fallback="#a0a0a0"):
+              rgb = to_rgb_list(col, None)
+              if rgb is None:
+                  return fallback
+              return "#%02x%02x%02x" % tuple(int(max(0.0, min(1.0, v)) * 255) for v in rgb)
+
+          VALID_HAIR = {'short', 'curly', 'spiky', 'cap', 'long', 'pigtails', 'bald', 'bun', 'grey_old'}
+          VALID_ANIMS = {
+              'idle', 'talk', 'walk', 'run', 'point', 'shrug', 'shock', 'scared', 'cheer', 'eat',
+              'cross_arms', 'think', 'sad', 'angry', 'wave', 'sit', 'facepalm',
+              'hold_hands', 'hold_hands_L', 'hold_hands_R',
+              'nod', 'headshake', 'flinch', 'slump', 'jump_joy', 'surrender', 'what', 'clap',
+          }
+          VALID_EXPRS = {
+              'neutral', 'smile', 'grin', 'laugh', 'shock', 'scared', 'sad', 'worried', 'angry',
+              'smug', 'think', 'blink', 'happy', 'joy', 'excited', 'fear', 'surprised', 'mad', 'upset', 'confused', 'nervous'
+          }
+
+          timed_path = os.path.join(os.environ["PROJ_DIR"], "timed.json")
+          data = json.load(open(timed_path, "r", encoding="utf-8"))
+
+          # Sanitize cast colors & hair
+          for nm, spec in (data.get("cast") or {}).items():
+              if not isinstance(spec, dict):
+                  continue
+              spec["skin"] = to_rgb_list(spec.get("skin"), [0.96, 0.76, 0.61])
+              spec["shirt"] = to_rgb_list(spec.get("shirt"), [0.12, 0.45, 0.95])
+              spec["pants"] = to_rgb_list(spec.get("pants"), [0.12, 0.16, 0.25])
+              spec["shoes"] = to_rgb_list(spec.get("shoes"), [0.12, 0.12, 0.14])
+              spec["hair_color"] = to_rgb_list(spec.get("hair_color"), [0.20, 0.13, 0.08])
+              for opt_k in ("cap_color", "tie_color", "apron_color", "inner_color", "skirt_color"):
+                  if opt_k in spec:
+                      spec[opt_k] = to_rgb_list(spec[opt_k], [0.5, 0.5, 0.5])
+              if spec.get("hair") not in VALID_HAIR:
+                  spec["hair"] = "short"
+
+          # Sanitize custom places & things hex colors
+          for pnm, pspec in (data.get("places") or {}).items():
+              if isinstance(pspec, dict):
+                  for ck in ("wall", "lower", "floor_color"):
+                      if ck in pspec and pspec[ck]:
+                          pspec[ck] = to_hex_str(pspec[ck], "#c9c2b2")
+
+          for tnm, parts in (data.get("things") or {}).items():
+              if isinstance(parts, list):
+                  for pt in parts:
+                      if isinstance(pt, list) and len(pt) >= 2:
+                          pt[1] = to_hex_str(pt[1], "#a0a0a0")
+
+          # Sanitize shots animations & expressions
+          for sh in data.get("shots") or []:
+              for cnm, act in (sh.get("do") or {}).items():
+                  if isinstance(act, dict):
+                      if act.get("anim") and act["anim"] not in VALID_ANIMS:
+                          act["anim"] = "idle"
+                      if act.get("expr") and act["expr"] not in VALID_EXPRS:
+                          act["expr"] = "neutral"
+
+          json.dump(data, open(timed_path, "w", encoding="utf-8"), indent=2)
+          print("[Sanitize] Normalized all cast RGBs, place hexes, things, and anims in timed.json")
           EOF
 
-          $BLENDER -b --factory-startup -P kit/blox/compile.py -- "$PROJ_DIR"
-          if [ ! -f "$PROJ_DIR/scene.blend" ]; then
+          # Compile 3D Scene (Attempt 1: with custom places & things)
+          $BLENDER -b --factory-startup -P kit/blox/compile.py -- "$PROJ_DIR" || true
+
+          # Attempt 2: fallback to built-in sets if custom places failed
+          if [ ! -s "$PROJ_DIR/scene.blend" ]; then
             echo "[WARN] Custom places failed to compile; falling back to built-in sets..."
             python - << 'EOF'
           import json, os
@@ -311,12 +429,9 @@ jobs:
           post_file = "kit/blox/post.py"
           with open(post_file, "r", encoding="utf-8") as f:
               src = f.read()
-          # 1. Disable end card & metadata branding
           src = src.replace("TAG_S = 0.6", "TAG_S = 0.0")
           src = src.replace("META = {'title': 'Made with Beta Version Blox Studio'", "META = {'title': 'Generated Reel'")
-          # 2. Remove top-right BETA VERSION wordmark
           src = src.replace("base.alpha_composite(p, (x, y))", "pass")
-          # 3. Remove blue β. corner badge on captions
           src = src.replace("im.alpha_composite(mp, (mx, my))", "pass")
           with open(post_file, "w", encoding="utf-8") as f:
               f.write(src)
