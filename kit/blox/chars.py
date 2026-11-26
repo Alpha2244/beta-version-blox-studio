@@ -591,7 +591,7 @@ def _print_mat(plate):
     return m
 
 
-def _print_plane(name, center, width, back=False, plate=True):
+def _print_plane(name, center, width, back=False, plate=False):
     im = _wm_image(); w = width; h = width * im.size[1] / max(1, im.size[0])
     if plate: w, h = w * 1.08, h * 1.25
     me = bpy.data.meshes.new(name); x0, x1, z0, z1 = -w / 2, w / 2, -h / 2, h / 2
@@ -638,7 +638,6 @@ def make_char(name, spec):
     arm.show_in_front = False
     arm.hide_render = True
 
-    # Clean, bright Roblox-style materials (no grey Coat Weight haze on skin/cloth)
     M_skin = _cmat(skin, 'skin', rough=0.38, coat=0.0, sss=0.06)
     M_shirt = _cmat(shirt, 'cloth', rough=0.48, sheen=0.2, coat=0.0)
     M_pants = _cmat(pants, 'cloth', rough=0.48, sheen=0.2, coat=0.0)
@@ -663,7 +662,6 @@ def make_char(name, spec):
         add(_rbox(name + '_lower_leg.' + sd, (0.5 * s, 0, 0.64), (0.96, 0.96, 0.72), M_pants, bevel=0.1), 'lower_leg.' + sd, 'leg')
         add(_rbox(name + '_foot.' + sd, (0.5 * s, -0.06, 0.13), (0.96, 1.1, 0.26), M_shoes, bevel=0.08), 'foot.' + sd, 'leg')
 
-    # face
     M_ink = _mat('rbx_face_ink', (0.015, 0.015, 0.02), rough=0.55)
     M_mouth = _mat('rbx_face_mouth', (0.06, 0.012, 0.015), rough=0.55)
     M_glint = _mat('rbx_face_glint', (1, 1, 1), rough=0.4, emit=True)
@@ -671,7 +669,6 @@ def make_char(name, spec):
     fo['rbx_role'] = 'face'
     _parent(fo, arm, 'head')
 
-    # hair
     hair_style = spec.get('hair', 'short')
     if hair_style not in HAIR_STYLES:
         hair_style = 'short'
@@ -680,7 +677,6 @@ def make_char(name, spec):
         ob['rbx_role'] = 'hair'
         _parent(ob, arm, 'head')
 
-    # extras
     if 'glasses' in extras:
         g = _glasses(name + '_glasses', _mat('rbx_glasses', (0.05, 0.05, 0.06), rough=0.35))
         g['rbx_role'] = 'acc'; _parent(g, arm, 'head')
@@ -720,11 +716,8 @@ def make_char(name, spec):
         _parent(ob, arm, 'torso')
         parts.append(ob)
 
-    # Beta Version prints
-    prints = []
-    if not ({'tie', 'apron', 'cardigan'} & set(extras)):
-        prints.append(_print_plane(name + '_print_chest', (0, -0.512, 3.3), 1.45))
-    prints.append(_print_plane(name + '_print_back', (0, 0.512, 3.35), 1.6, back=True))
+    # Clean back & cap wordmark prints (no dark chest plate box)
+    prints = [_print_plane(name + '_print_back', (0, 0.512, 3.35), 1.6, back=True, plate=False)]
     for ob in prints:
         ob['rbx_role'] = 'acc'; _parent(ob, arm, 'torso'); parts.append(ob)
     if hair_style == 'cap':
@@ -933,7 +926,6 @@ def _static(anim, t):
             P.update(_arm_fk(s, fwd=52, out=-8, elbow=55, spread=-38 - 18 * cl))
         P['head'] = _R(-2, 0, 4 * math.sin(2 * math.pi * 1.2 * t))
     elif anim in ('hold_hands', 'hold_hands_L', 'hold_hands_R'):
-        # Gentle walk-in-place sway while reaching inner hand across to meet partner at 2.15 studs spacing
         P, root = _idle(t, talk=False)
         sway = 3.0 * math.sin(2 * math.pi * 0.9 * t)
         if anim == 'hold_hands_R':
@@ -1049,7 +1041,7 @@ def _fcurves(action):
         return out
 
 
-try:  # new keys default to linear
+try:
     bpy.context.preferences.edit.keyframe_new_interpolation_type = 'LINEAR'
 except Exception:
     pass
