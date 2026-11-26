@@ -31,17 +31,16 @@ RICH_SETS = [
     "Store", "Classroom", "Office", "LivingRoom", "Kitchen", "Bedroom", "Backyard", "Playground",
 ]
 
-# Persistent family, school & friend cast universe (male & female) + bright sRGB colors
 DEFAULT_CAST_UNIVERSE = {
-    "Leo": {"height": 1.0, "gender": "male", "role": "main_character", "skin": "#f5c29b", "hair": "spiky", "hair_color": "#261b14", "shirt": "#1e73f2", "pants": "#1b2234"},
-    "Maya": {"height": 0.94, "gender": "female", "role": "sister", "skin": "#f7c7a3", "hair": "pigtails", "hair_color": "#3b2316", "shirt": "#ff4f8b", "pants": "#2a2d43"},
-    "Max": {"height": 1.05, "gender": "male", "role": "brother", "skin": "#e8b087", "hair": "curly", "hair_color": "#1e1612", "shirt": "#22b855", "pants": "#1d2432"},
-    "Mom": {"height": 1.02, "gender": "female", "role": "mother", "skin": "#f5c29b", "hair": "bun", "hair_color": "#4a2c18", "shirt": "#9b51e0", "pants": "#25293a"},
-    "Dad": {"height": 1.08, "gender": "male", "role": "father", "skin": "#eab38a", "hair": "short", "hair_color": "#2d221c", "shirt": "#2f80ed", "pants": "#1f2533"},
-    "Uncle_Sam": {"height": 1.06, "gender": "male", "role": "uncle", "skin": "#e2a77d", "hair": "short", "hair_color": "#5c5856", "shirt": "#f2994a", "pants": "#2c3342"},
-    "Ms_Clara": {"height": 1.02, "gender": "female", "role": "teacher", "skin": "#f6c9a6", "hair": "long", "hair_color": "#3d2516", "shirt": "#27ae60", "pants": "#1e2430"},
-    "Zoe": {"height": 0.97, "gender": "female", "role": "friend_female", "skin": "#c68658", "hair": "long", "hair_color": "#191412", "shirt": "#f2c94c", "pants": "#232938"},
-    "Sam": {"height": 1.0, "gender": "male", "role": "friend_male", "skin": "#8d5524", "hair": "curly", "hair_color": "#141110", "shirt": "#eb5757", "pants": "#1c2230"},
+    "Leo": {"height": 1.0, "gender": "male", "role": "main_character", "skin": "#f5c29b", "hair": "spiky", "hair_color": "#261b14", "shirt": "#1e73f2", "pants": "#1b2234", "extras": []},
+    "Maya": {"height": 0.94, "gender": "female", "role": "sister", "skin": "#f7c7a3", "hair": "pigtails", "hair_color": "#3b2316", "shirt": "#ff4f8b", "pants": "#2a2d43", "extras": []},
+    "Max": {"height": 1.05, "gender": "male", "role": "brother", "skin": "#e8b087", "hair": "curly", "hair_color": "#1e1612", "shirt": "#22b855", "pants": "#1d2432", "extras": ["cap"]},
+    "Mom": {"height": 1.02, "gender": "female", "role": "mother", "skin": "#f5c29b", "hair": "bun", "hair_color": "#4a2c18", "shirt": "#9b51e0", "pants": "#25293a", "extras": ["cardigan"]},
+    "Dad": {"height": 1.08, "gender": "male", "role": "father", "skin": "#eab38a", "hair": "short", "hair_color": "#2d221c", "shirt": "#2f80ed", "pants": "#1f2533", "extras": ["tie"]},
+    "Uncle_Sam": {"height": 1.06, "gender": "male", "role": "uncle", "skin": "#e2a77d", "hair": "short", "hair_color": "#5c5856", "shirt": "#f2994a", "pants": "#2c3342", "extras": ["glasses"]},
+    "Ms_Clara": {"height": 1.02, "gender": "female", "role": "teacher", "skin": "#f6c9a6", "hair": "long", "hair_color": "#3d2516", "shirt": "#27ae60", "pants": "#1e2430", "extras": ["glasses", "cardigan"]},
+    "Zoe": {"height": 0.97, "gender": "female", "role": "best_friend_female", "skin": "#c68658", "hair": "long", "hair_color": "#191412", "shirt": "#f2c94c", "pants": "#232938", "extras": []},
+    "Sam": {"height": 1.0, "gender": "male", "role": "best_friend_male", "skin": "#8d5524", "hair": "curly", "hair_color": "#141110", "shirt": "#eb5757", "pants": "#1c2230", "extras": []},
 }
 
 BACKGROUND_CROWD_NPCS = {
@@ -56,12 +55,13 @@ VALID_MOODS = {"sunny", "sunset", "storm", "night"}
 VALID_ANIMS = {
     "idle", "talk", "walk", "run", "nod", "headshake", "flinch",
     "slump", "jump_joy", "shock", "surrender", "what", "facepalm", "clap",
-    "point", "hold_hands", "wave", "cheer",
+    "point", "hold_hands", "hold_hands_L", "hold_hands_R", "wave", "cheer",
+    "shrug", "scared", "eat", "cross_arms", "think", "sad", "angry", "sit",
 }
-VALID_FACES = {"neutral", "smile", "angry", "scared", "worried", "think", "shock", "smug", "sad"}
+VALID_FACES = {"neutral", "smile", "grin", "laugh", "angry", "scared", "worried", "think", "shock", "smug", "sad"}
 FACE_ALIASES = {
-    "happy": "smile", "joy": "smile", "excited": "smile", "laugh": "smile", "grin": "smile",
-    "fear": "scared", "terrified": "scared", "surprised": "shock", "amazed": "shock",
+    "happy": "smile", "joy": "grin", "excited": "grin", "fear": "scared",
+    "terrified": "scared", "surprised": "shock", "amazed": "shock",
     "mad": "angry", "furious": "angry", "upset": "sad", "crying": "sad",
     "confused": "think", "nervous": "worried",
 }
@@ -111,8 +111,8 @@ def load_training_context() -> tuple[dict, str, dict]:
         sample_hooks = random.sample(hooks, min(15, len(hooks))) if hooks else []
         corpus_block = (
             f"HARVESTED @craftee_films VAULT STATS ({corpus.get('total_scripts_collected', 0)} real Instagram scripts, "
-            f"avg {corpus.get('avg_words_per_sec', 3.2)} words/sec, "
-            f"avg {corpus.get('avg_cuts_per_video', 24)} camera cuts/video):\n"
+            f"avg {corpus.get('avg_words_per_sec', 4.75)} words/sec, "
+            f"avg {corpus.get('avg_cuts_per_video', 49.4)} camera cuts/video):\n"
             f"PROVEN 0-3s OPENING HOOKS FROM @craftee_films:\n"
             + "\n".join(f"- {h}" for h in sample_hooks)
             + "\n\nFULL HARVESTED @craftee_films SCRIPTS (MATCH THIS EXACT RHYTHM, TONE & TWIST PACING):\n"
@@ -136,25 +136,24 @@ def enforce_zero_clash_choreography(actors: list[dict], shot_set: str) -> list[d
     if not actors:
         return actors
 
-    # 1. Handle hold_hands pairs first so they stand cleanly side-by-side at 2.15 studs facing the same direction
-    holding = [a for a in actors if a.get("anim") == "hold_hands"]
+    holding = [a for a in actors if str(a.get("anim", "")).startswith("hold_hands")]
     if len(holding) >= 2:
         a1, a2 = holding[0], holding[1]
         cx = (float(a1.get("at", [-1.1, 0])[0]) + float(a2.get("at", [1.1, 0])[0])) / 2.0
         cy = float(a1.get("at", [0, 0])[1])
         a1["at"] = [round(cx - 1.075, 2), round(cy, 2)]
         a2["at"] = [round(cx + 1.075, 2), round(cy, 2)]
-        shared_yaw = float(a1.get("yaw", 0))
-        a1["yaw"] = shared_yaw
-        a2["yaw"] = shared_yaw
+        a1["anim"] = "hold_hands_L"
+        a2["anim"] = "hold_hands_R"
+        a1["yaw"] = 0.0
+        a2["yaw"] = 0.0
 
-    # 2. Enforce >= 3.4 studs minimum Euclidean distance between all non-hand-holding actors
     min_dist = 3.4
     for i in range(len(actors)):
         pos_i = actors[i].get("at", [0.0, 0.0])
         xi, yi = float(pos_i[0]), float(pos_i[1])
         for j in range(i):
-            if actors[i].get("anim") == "hold_hands" and actors[j].get("anim") == "hold_hands":
+            if str(actors[i].get("anim", "")).startswith("hold_hands") and str(actors[j].get("anim", "")).startswith("hold_hands"):
                 continue
             pos_j = actors[j].get("at", [0.0, 0.0])
             xj, yj = float(pos_j[0]), float(pos_j[1])
@@ -164,22 +163,16 @@ def enforce_zero_clash_choreography(actors: list[dict], shot_set: str) -> list[d
                 if dist < 0.01:
                     dx, dy, dist = 1.0, 0.15, 1.011
                 push = (min_dist - dist) + 0.25
-                xi = round(xi + (dx / dist) * push, 2)
-                yi = round(yi + (dy / dist) * push, 2)
-                # Keep inside safe clear zone
-                xi = max(-6.2, min(6.2, xi))
-                yi = max(-3.2, min(5.5, yi))
+                xi = max(-6.2, min(6.2, round(xi + (dx / dist) * push, 2)))
+                yi = max(-3.2, min(5.5, round(yi + (dy / dist) * push, 2)))
                 actors[i]["at"] = [xi, yi]
 
-    # 3. Auto-orient speakers/listeners toward each other when facing each other in two-shots
-    if len(actors) >= 2 and actors[0].get("anim") != "hold_hands":
+    if len(actors) >= 2 and not str(actors[0].get("anim", "")).startswith("hold_hands"):
         p0 = actors[0]["at"]
         p1 = actors[1]["at"]
-        # In Blox Studio, yaw 0 faces -Y (towards camera). Compute natural angled turn towards partner.
         dx01 = p1[0] - p0[0]
         dy01 = p1[1] - p0[1]
         if abs(dx01) > 0.5:
-            # Face partially toward camera (-Y) and partially toward the other character
             yaw0 = round(math.degrees(math.atan2(dx01, max(1.2, -dy01 + 1.8))), 1)
             yaw1 = round(math.degrees(math.atan2(-dx01, max(1.2, dy01 + 1.8))), 1)
             actors[0]["yaw"] = max(-65.0, min(65.0, yaw0))
@@ -190,23 +183,23 @@ def enforce_zero_clash_choreography(actors: list[dict], shot_set: str) -> list[d
 
 def build_offline_fast_story(cast_universe: dict) -> dict:
     beats = [
-        ("Street", "sunny", "mcu", "crash_in", "Leo", "STOP scrolling! Look at this glowing golden crown!", "shock", "shock", ["whoosh@0.0"], None),
+        ("Street", "sunny", "mcu", "crash_in", "Leo", "STOP! Look at this glowing golden crown!", "shock", "shock", ["whoosh@0.0"], None),
         ("Street", "sunny", "ins", "push", "Leo", "It was sitting right on the sidewalk!", "talk", "shock", ["ding@0.1"], "GoldenCrown"),
         ("Street", "sunny", "two", "push", "Maya", "Maya warned me it belonged to the Mayor!", "talk", "worried", [], None),
         ("Street", "sunny", "low", "crash_in", "Max", "Max dared me to put it on anyway!", "point", "smug", ["pop@0.0"], None),
         ("Street", "sunny", "ws", "drift", "Leo", "The second I touched it, sirens echoed!", "what", "shock", ["boom@0.0"], None),
-        ("Classroom", "sunny", "mcu", "crash_in", "Ms_Clara", "Ms. Clara spotted the crown in my backpack!", "shock", "angry", ["impact@0.0"], None),
-        ("Classroom", "sunny", "two", "push", "Leo", "I told her I was returning it!", "surrender", "scared", [], None),
+        ("Classroom", "sunny", "mcu", "crash_in", "Ms_Clara", "Ms. Clara spotted the crown in my bag!", "shock", "angry", ["impact@0.0"], None),
+        ("Classroom", "sunny", "two", "push", "Leo", "I promised her I was returning it!", "surrender", "scared", [], None),
         ("Park", "sunny", "ws", "reveal_push", "Uncle_Sam", "Then Uncle Sam showed up with a map!", "wave", "smile", ["whoosh@0.0"], None),
         ("Park", "sunny", "two", "push", "Maya", "Maya and I held hands crossing the bridge.", "hold_hands", "smile", [], None),
-        ("Park", "sunny", "low", "creep", "Sam", "Sam yelled that the Mayor was right behind us!", "flinch", "scared", ["riser@0.0"], None),
+        ("Park", "sunny", "low", "creep", "Sam", "Sam yelled that the Mayor was behind us!", "flinch", "scared", ["riser@0.0"], None),
         ("MusicRow", "sunny", "ws", "crash_in", "Leo", "We handed the Golden Crown straight back!", "jump_joy", "smile", ["boom@0.0"], None),
         ("MusicRow", "sunny", "two", "push", "Zoe", "The whole town cheered for our honesty!", "cheer", "smile", ["cash@0.0"], None),
     ]
     shots = []
     for st, md, cm, mv, subj, txt, anim, face, sfx, focus_thing in beats:
         actors = [
-            {"who": subj, "at": [-1.8, 0.0], "yaw": 20, "anim": anim, "face": face, "talk": [0.0, 1.6]},
+            {"who": subj, "at": [-1.8, 0.0], "yaw": 20, "anim": anim, "face": face, "talk": [0.0, 1.3]},
             {"who": "Maya" if subj != "Maya" else "Leo", "at": [1.8, 0.2], "yaw": -20, "anim": "hold_hands" if anim == "hold_hands" else "idle", "face": "smile" if anim == "hold_hands" else "shock"},
         ]
         if cm == "ws":
@@ -226,7 +219,10 @@ def build_offline_fast_story(cast_universe: dict) -> dict:
             sh["focus"] = focus_thing
         shots.append(sh)
 
-    cast_out = {k: {kk: vv for kk, vv in v.items() if kk in ("height", "skin", "shirt", "pants", "hair", "hair_color", "extras")} for k, v in cast_universe.items()}
+    cast_out = {
+        k: {kk: vv for kk, vv in v.items() if kk in ("height", "skin", "shirt", "pants", "hair", "hair_color", "extras")}
+        for k, v in cast_universe.items()
+    }
     cast_out.update(BACKGROUND_CROWD_NPCS)
 
     return {
@@ -305,32 +301,50 @@ def main(project_dir: str):
     theme = os.environ.get("STORY_THEME", "").strip()
 
     cast_universe = visual_bible.get("canonical_cast_universe") or DEFAULT_CAST_UNIVERSE
-    anti_clash_rules = visual_bible.get("anti_clash_and_choreography_rules", {})
     vision_standards = visual_bible.get("vision_distilled_standards", {})
+    hook_formulas = visual_bible.get("sample_hook_formulas", [])
+    story_arcs = visual_bible.get("sample_story_arcs", [])
+    fx_gags = visual_bible.get("learned_fx_and_gags", [])
+    envs = visual_bible.get("learned_environments", [])
 
-    prompt = f"""You are the Showrunner & 3D Roblox Reels Director trained on our harvested @craftee_films Instagram video & frame vault.
+    sampled_hooks = random.sample(hook_formulas, min(6, len(hook_formulas)))
+    sampled_arcs = random.sample(story_arcs, min(4, len(story_arcs)))
+    sampled_gags = random.sample(fx_gags, min(12, len(fx_gags)))
+    sampled_envs = random.sample(envs, min(12, len(envs)))
+
+    prompt = f"""You are the Showrunner & 3D Roblox Reels Director trained on our harvested @craftee_films Instagram video & frame vault (37 reels, 8,488 frames analyzed, 4.75 words/sec rapid pacing).
 
 {corpus_block}
 
 MASTER VISUAL BIBLE DISTILLED FROM HARVESTED @craftee_films FRAMES:
-{json.dumps(vision_standards, indent=2) if vision_standards else "Bright sRGB daytime colors, clean side-by-side character spacing, rapid 1.75s cuts, rich town/school/home sets, and dramatic prop close-ups."}
+{json.dumps(vision_standards, indent=2) if vision_standards else "Bright sRGB daytime colors, clean side-by-side character spacing, rapid 1.35s cuts, rich town/school/home sets, and dramatic prop close-ups."}
+
+PROVEN HOOK FORMULAS FROM VISUAL BIBLE:
+{json.dumps(sampled_hooks, indent=2)}
+
+PROVEN STORY ARCS & TWIST STRUCTURES:
+{json.dumps(sampled_arcs, indent=2)}
+
+LEARNED VISUAL GAGS, FX & ENVIRONMENTS TO INSPIRE SCENES:
+- Gags/FX: {json.dumps(sampled_gags)}
+- Environments: {json.dumps(sampled_envs)}
 
 SELECTED REEL BLUEPRINT:
-{json.dumps(bp, indent=2) if bp else "24-to-28-shot high-energy Roblox story with punchy 3-second hook and twist payoff."}
+{json.dumps(bp, indent=2) if bp else "26-to-30-shot high-energy Roblox story (~36-40 seconds total, 1.35s per shot) with punchy 3-second hook and twist payoff."}
 
 USER STORY SITUATION / THEME:
-"{theme or 'Write a brand-new viral family & school twist Reel starring Leo (main character), his sister Maya, brother Max, Mom, Dad, Uncle_Sam, teacher Ms_Clara, and friends Zoe & Sam, plus any needed situational roles (Officer, Mayor, Chef).'}"
+"{theme or 'Write a brand-new viral family & school twist Reel (26-28 rapid shots) starring Leo (main character), his sister Maya, brother Max, Mom, Dad, Uncle_Sam, teacher Ms_Clara, and friends Zoe & Sam, plus any needed situational roles (Officer, Mayor, Chef).'}"
 
 MANDATORY CAST UNIVERSE & CUSTOM CHARACTER RULES:
 1. RECURRING FAMILY & SCHOOL UNIVERSE (use bright sRGB hex colors so skin/clothes never render dark or muddy):
 {json.dumps(cast_universe, indent=2)}
-2. SITUATIONAL / DYNAMIC ROLES: If the story needs an extra character (e.g. Police Officer, Judge, Chef, Principal, Billionaire), add them to `cast` with bright sRGB hex colors, distinct `hair` ("short"|"spiky"|"curly"|"long"|"pigtails"|"bun"), and `gender`.
+2. SITUATIONAL / DYNAMIC ROLES: If the story needs an extra character (e.g. Officer, Mayor, Chef, Principal), add them to `cast` with bright sRGB hex colors, distinct `hair` ("short"|"spiky"|"curly"|"long"|"pigtails"|"bun"), and `extras` (e.g. ["tie"], ["glasses"], ["apron"], ["skirt"]).
 3. BACKGROUND CROWDS: Include `Townie_1`, `Townie_2`, `Townie_3` in `cast` and place 2-3 of them in wide shots (`cam: "ws"`) at `y >= 4.5` (behind the main characters) so towns, parks, and schools look bustling!
 
 MANDATORY ZERO-CLIPPING & CHOREOGRAPHY RULES:
 1. MINIMUM SEPARATION: Keep foreground actors at least 3.6 studs apart (e.g., actor 1 at `[-1.9, 0.0]`, actor 2 at `[1.9, 0.2]`) so arms and heads NEVER clip inside each other!
 2. HOLDING HANDS (`anim: "hold_hands"`): When two characters walk or stand holding hands, place them side-by-side at `x = -1.08` and `x = +1.08` (2.15 studs apart) with matching `yaw: 0`.
-3. ALLOWED FACES ONLY: {json.dumps(sorted(VALID_FACES))} (NEVER use "happy" — use "smile").
+3. ALLOWED FACES ONLY: {json.dumps(sorted(VALID_FACES))} (NEVER use "happy" — use "smile" or "grin").
 4. ALLOWED ANIMS ONLY: {json.dumps(sorted(VALID_ANIMS))}.
 
 SELF-BUILT 3D ROBLOX PROPS (`things` + `places` + `cam: "ins"`):
@@ -374,10 +388,10 @@ Return ONLY valid JSON matching:
       "cam": "mcu",
       "move": "crash_in",
       "subject": "Leo",
-      "text": "Punchy hook line under 10 words!",
+      "text": "Punchy hook line under 9 words!",
       "sfx": ["whoosh@0.0"],
       "actors": [
-        {{"who": "Leo", "at": [-1.9, 0.0], "yaw": 20, "anim": "shock", "face": "shock", "talk": [0.0, 1.75]}},
+        {{"who": "Leo", "at": [-1.9, 0.0], "yaw": 20, "anim": "shock", "face": "shock", "talk": [0.0, 1.3]}},
         {{"who": "Maya", "at": [1.9, 0.2], "yaw": -20, "anim": "idle", "face": "worried"}}
       ]
     }}
@@ -392,7 +406,6 @@ Return ONLY valid JSON matching:
         print(f"[WARN] Story LLM fallback engaged ({e}); using offline family/town story.", flush=True)
         story = build_offline_fast_story(cast_universe)
 
-    # Merge canonical cast + background townies so every character referenced is guaranteed valid
     if not isinstance(story.get("cast"), dict):
         story["cast"] = {}
     for cname, cdata in cast_universe.items():
@@ -423,7 +436,6 @@ Return ONLY valid JSON matching:
         if sh.get("mood") not in VALID_MOODS:
             sh["mood"] = "sunny"
 
-        # Preserve `cam: "ins"` when targeting a custom prop in `focus`
         if sh.get("cam") == "ins" and sh.get("focus"):
             pass
         elif sh.get("cam") not in VALID_CAMS or sh.get("cam") == prev_cam:
@@ -436,13 +448,13 @@ Return ONLY valid JSON matching:
             sh["subject"] = "Leo" if "Leo" in cast_names else cast_names[0]
 
         sh["t0"] = round(t_cursor, 2)
-        t_cursor += 1.80
+        t_cursor += 1.35
         sh["t1"] = round(t_cursor, 2)
 
         actors = sh.get("actors")
         if not isinstance(actors, list) or not actors:
             sh["actors"] = [
-                {"who": sh["subject"], "at": [-1.8, 0.0], "yaw": 18, "anim": "talk", "face": "neutral", "talk": [0.0, 1.6]},
+                {"who": sh["subject"], "at": [-1.8, 0.0], "yaw": 18, "anim": "talk", "face": "neutral", "talk": [0.0, 1.3]},
             ]
         else:
             for act in actors:
@@ -457,7 +469,6 @@ Return ONLY valid JSON matching:
                         for pair in act["faceAt"]
                         if isinstance(pair, list) and len(pair) >= 2
                     ]
-            # Automatically inject 2 background crowd NPCs in wide outdoor shots if not already present
             if sh["cam"] == "ws" and sh["set"] in ("Street", "Park", "TownPool", "MusicRow", "Playground"):
                 existing_whos = {a.get("who") for a in actors}
                 if "Townie_1" not in existing_whos and len(actors) < 5:
