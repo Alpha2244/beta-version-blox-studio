@@ -112,6 +112,83 @@ jobs:
 
       - name: 7. Compile 3D Scene & Bake Full Colors for Fast Workbench CPU Render
         run: |
+          python - << 'EOF'
+          import re
+
+          # 1. Harden _parse_rgb in kit/blox/chars.py so hex strings ('#f4c29f') never crash float()
+          with open("kit/blox/chars.py", "r", encoding="utf-8") as f:
+              csrc = f.read()
+
+          new_parse_rgb = '''def _parse_rgb(col, default=(0.8, 0.8, 0.8)):
+              if col is None:
+                  return default
+              if isinstance(col, str):
+                  s = col.strip().lstrip('#')
+                  if len(s) == 3:
+                      s = ''.join(ch * 2 for ch in s)
+                  if len(s) >= 6:
+                      try:
+                          return (int(s[0:2], 16) / 255.0, int(s[2:4], 16) / 255.0, int(s[4:6], 16) / 255.0)
+                      except ValueError:
+                          return default
+                  return default
+              if isinstance(col, (list, tuple)) and len(col) >= 3:
+                  vals = [float(col[0]), float(col[1]), float(col[2])]
+                  if max(vals) > 1.0:
+                      vals = [v / 255.0 for v in vals]
+                  return tuple(max(0.0, min(1.0, v)) for v in vals)
+              return default'''
+
+          csrc_new = re.sub(
+              r"def _parse_rgb\(.*?\n(?=\ndef |\n#)",
+              new_parse_rgb + "\n\n",
+              csrc,
+              flags=re.DOTALL,
+          )
+          with open("kit/blox/chars.py", "w", encoding="utf-8") as f:
+              f.write(csrc_new)
+          print("[Patch] Hardened _parse_rgb in kit/blox/chars.py")
+
+          # 2. Harden _hex in kit/blox/places.py so 0..255 lists and named colors convert cleanly
+          with open("kit/blox/places.py", "r", encoding="utf-8") as f:
+              psrc = f.read()
+
+          new_hex_fn = '''def _hex(c, default='#a0a0a0'):
+              _NAMED = {
+                  'red': '#c83c3c', 'blue': '#3c7ab4', 'green': '#4c9a5a', 'yellow': '#e0b43c',
+                  'gold': '#e6b830', 'silver': '#c4c8cc', 'white': '#f2f0eb', 'black': '#1e2024',
+                  'gray': '#80848a', 'grey': '#80848a', 'brown': '#7a5236', 'wood': '#9c6e44',
+                  'orange': '#e07a3c', 'purple': '#8a5aa8', 'pink': '#e08aa8', 'cyan': '#4cb4c8',
+              }
+              if not c:
+                  return default
+              if isinstance(c, (list, tuple)) and len(c) >= 3:
+                  vals = [float(v) for v in c[:3]]
+                  if max(vals) > 1.0:
+                      vals = [v / 255.0 for v in vals]
+                  return '#%02x%02x%02x' % tuple(int(max(0.0, min(1.0, v)) * 255) for v in vals)
+              if isinstance(c, str):
+                  s = c.strip().lower()
+                  if s in _NAMED:
+                      return _NAMED[s]
+                  h = s.lstrip('#')
+                  if len(h) == 3 and all(ch in '0123456789abcdef' for ch in h):
+                      return '#' + ''.join(ch * 2 for ch in h)
+                  if len(h) >= 6 and all(ch in '0123456789abcdef' for ch in h[:6]):
+                      return '#' + h[:6]
+              return default'''
+
+          psrc_new = re.sub(
+              r"def _hex\(.*?\n(?=\ndef |\n#)",
+              new_hex_fn + "\n\n",
+              psrc,
+              flags=re.DOTALL,
+          )
+          with open("kit/blox/places.py", "w", encoding="utf-8") as f:
+              f.write(psrc_new)
+          print("[Patch] Hardened _hex in kit/blox/places.py")
+          EOF
+
           $BLENDER -b --factory-startup -P kit/blox/compile.py -- "$PROJ_DIR"
           if [ ! -f "$PROJ_DIR/scene.blend" ]; then
             echo "[WARN] Custom places failed to compile; falling back to built-in sets..."
