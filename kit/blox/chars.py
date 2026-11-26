@@ -18,8 +18,10 @@ ANIMS = [
     'hold_hands', 'hold_hands_L', 'hold_hands_R',
     'nod', 'headshake', 'flinch', 'slump', 'jump_joy', 'surrender', 'what', 'clap',
 ]
-EXPRS = ['neutral', 'smile', 'grin', 'laugh', 'shock', 'scared', 'sad', 'worried', 'angry',
-         'smug', 'think', 'blink']
+EXPRS = [
+    'neutral', 'smile', 'grin', 'laugh', 'shock', 'scared', 'sad', 'worried', 'angry',
+    'smug', 'think', 'blink', 'cry', 'blush',
+]
 VISEMES = ['A', 'O', 'E', 'M']
 HAIR_STYLES = ['short', 'curly', 'spiky', 'cap', 'long', 'pigtails', 'bald', 'bun', 'grey_old']
 
@@ -53,32 +55,42 @@ HIP_Z = 1.75
 
 # ---------------------------------------------------------------- color & materials
 def _parse_rgb(col, default=(0.8, 0.8, 0.8)):
-    """Accepts '#rrggbb', '#rgb', (r,g,b) in 0..1 or 0..255, and returns clean (r,g,b) floats in 0..1."""
-    if col is None:
-        return default
-    if isinstance(col, str):
-        s = col.strip().lstrip('#')
-        if len(s) == 3:
-            s = ''.join(ch * 2 for ch in s)
-        if len(s) >= 6:
-            try:
+    """Accepts '#rrggbb', '#rgb', named colors, or (r,g,b) in 0..1 / 0..255."""
+    _NAMED = {
+        'red': (0.85, 0.2, 0.2), 'blue': (0.2, 0.45, 0.85), 'green': (0.2, 0.7, 0.3),
+        'yellow': (0.95, 0.8, 0.2), 'gold': (0.95, 0.75, 0.15), 'white': (0.95, 0.95, 0.95),
+        'black': (0.1, 0.1, 0.12), 'gray': (0.5, 0.5, 0.52), 'grey': (0.5, 0.5, 0.52),
+        'brown': (0.45, 0.28, 0.16), 'orange': (0.95, 0.48, 0.15), 'purple': (0.55, 0.25, 0.75),
+        'pink': (0.95, 0.55, 0.7), 'tan': (0.82, 0.68, 0.52), 'peach': (0.96, 0.76, 0.61),
+    }
+    try:
+        if col is None:
+            return default
+        if isinstance(col, str):
+            s = col.strip().lower()
+            if s in _NAMED:
+                return _NAMED[s]
+            h = s.lstrip('#')
+            if len(h) == 3:
+                h = ''.join(ch * 2 for ch in h)
+            if len(h) >= 6:
                 return (
-                    int(s[0:2], 16) / 255.0,
-                    int(s[2:4], 16) / 255.0,
-                    int(s[4:6], 16) / 255.0,
+                    int(h[0:2], 16) / 255.0,
+                    int(h[2:4], 16) / 255.0,
+                    int(h[4:6], 16) / 255.0,
                 )
-            except ValueError:
-                return default
-        return default
-    if isinstance(col, (list, tuple)) and len(col) >= 3:
-        vals = [float(col[0]), float(col[1]), float(col[2])]
-        if max(vals) > 1.0:
-            vals = [v / 255.0 for v in vals]
-        return tuple(max(0.0, min(1.0, v)) for v in vals)
+            return default
+        if isinstance(col, (list, tuple)) and len(col) >= 3:
+            vals = [float(col[0]), float(col[1]), float(col[2])]
+            if max(vals) > 1.0:
+                vals = [v / 255.0 for v in vals]
+            return tuple(max(0.0, min(1.0, v)) for v in vals)
+    except Exception:
+        pass
     return default
 
 
-def _mat(name, rgb, rough=0.45, sheen=0.0, emit=False, coat=0.0, sss=0.0):
+def _mat(name, rgb, rough=0.45, sheen=0.0, emit=False, emit_strength=1.0, coat=0.0, sss=0.0):
     m = bpy.data.materials.get(name)
     if m:
         return m
@@ -93,7 +105,7 @@ def _mat(name, rgb, rough=0.45, sheen=0.0, emit=False, coat=0.0, sss=0.0):
             b.inputs[k].default_value = v
     if emit:
         b.inputs['Emission Color'].default_value = (*rgb, 1)
-        b.inputs['Emission Strength'].default_value = 1.0
+        b.inputs['Emission Strength'].default_value = emit_strength
     return m
 
 
@@ -102,7 +114,6 @@ def _lin(c):
 
 
 def _cmat(col, tag, **kw):
-    """col given as sRGB tuple/list or '#hex' string; converts cleanly to linear for Blender."""
     rgb = _parse_rgb(col)
     return _mat('rbx_%s_%.3f_%.3f_%.3f' % (tag, *rgb), tuple(_lin(c) for c in rgb), **kw)
 
@@ -132,15 +143,6 @@ def _rbox(name, center, size, mat, bevel=0.1, seg=3):
     ob = bpy.data.objects.new(name, me)
     bpy.context.scene.collection.objects.link(ob)
     return ob
-
-
-def _join_meshes(name, parts):
-    bm = bmesh.new()
-    for f in parts:
-        f(bm)
-    me = bpy.data.meshes.new(name)
-    bm.to_mesh(me); bm.free()
-    return me
 
 
 def _add_rbox(bm, center, size, bevel=0.1, seg=2, rot=None):
@@ -215,9 +217,9 @@ def _head_mesh(name, mat):
     return ob
 
 
-# ---------------------------------------------------------------- face geometry (strips wrapped on the head cylinder)
+# ---------------------------------------------------------------- face geometry (eyes, brows, mouth, glint, tears, blush)
 NCOL = 14
-EPS_FACE, EPS_GLINT = 0.012, 0.022
+EPS_FACE, EPS_GLINT, EPS_FX = 0.012, 0.022, 0.016
 EYE_X, EYE_Y, MOUTH_Y = 0.2, 0.04, -0.27
 
 
@@ -230,7 +232,7 @@ def _sq(u):
 
 
 def _eye(side, kind='oval', w=0.06, h=0.085, dx=0.0, dy=0.0, lid=None, lslant=0.0):
-    cx, cy = side * EYE_X + side * dx * 0 + dx, EYE_Y + dy
+    cx, cy = side * EYE_X + dx, EYE_Y + dy
     top, bot = [], []
     for u in _us():
         x = cx + side * u * w
@@ -293,8 +295,42 @@ def _mouth(kind, w=0.13, cx=0.0, cy=MOUTH_Y, a=0.0, d=0.0, t=0.018):
     return top, bot
 
 
+def _tear_stream(side, active=False):
+    """Vertical tear ribbon flowing down from lower eyelid (collapsed to zero when inactive)."""
+    cx = side * (EYE_X + 0.018)
+    cy = EYE_Y - 0.145
+    hw = 0.024 if active else 0.0
+    hh = 0.105 if active else 0.0
+    top, bot = [], []
+    for u in _us():
+        x = cx + u * hw
+        s = _sq(u)
+        wobble = 0.008 * math.sin(math.pi * u) if active else 0.0
+        top.append((x + wobble, cy + hh * s))
+        bot.append((x - wobble, cy - hh * s))
+    return top, bot
+
+
+def _blush_cheek(side, active=False):
+    """Rosy oval cheek patch below each eye (collapsed to zero when inactive)."""
+    cx = side * (EYE_X + 0.065)
+    cy = EYE_Y - 0.125
+    hw = 0.072 if active else 0.0
+    hh = 0.036 if active else 0.0
+    top, bot = [], []
+    for u in _us():
+        x = cx + u * hw
+        s = _sq(u)
+        top.append((x, cy + hh * s))
+        bot.append((x, cy - hh * s))
+    return top, bot
+
+
 def _expr_shapes(e):
     E = lambda **k: (_eye(1, **k), _eye(-1, **k))
+    show_tears = (e == 'cry')
+    show_blush = (e == 'blush')
+
     if e == 'neutral':
         eyes = E(); br = dict(); m = _mouth('line', w=0.11)
     elif e == 'smile':
@@ -313,6 +349,12 @@ def _expr_shapes(e):
     elif e == 'sad':
         eyes = E(h=0.072, lid=0.75, lslant=-0.35); br = dict(by=0.29, tilt=-0.075, curve=0.0)
         m = _mouth('arc', w=0.12, cy=-0.29, a=-0.045, t=0.02)
+    elif e == 'cry':
+        eyes = E(kind='happy', w=0.068, h=0.048); br = dict(by=0.30, tilt=-0.09, curve=0.0)
+        m = _mouth('open', w=0.14, cy=-0.285, a=0.02, d=0.075)
+    elif e == 'blush':
+        eyes = E(h=0.082, dx=0.012); br = dict(by=0.29, tilt=-0.03, curve=0.02)
+        m = _mouth('wave', w=0.11, cy=-0.275, a=0.014, t=0.018)
     elif e == 'worried':
         eyes = E(w=0.064, h=0.09); br = dict(by=0.31, tilt=-0.06, curve=0.005)
         m = _mouth('wave', w=0.12, cy=-0.28, a=0.012, t=0.017)
@@ -331,22 +373,32 @@ def _expr_shapes(e):
         eyes = E(kind='line', w=0.062); br = dict(); m = _mouth('line', w=0.11)
     else:
         raise ValueError(e)
+
     if 'L' in br:
         bl, brr = _brow(1, **br['L']), _brow(-1, **br['R'])
     else:
         bl, brr = _brow(1, **br), _brow(-1, **br)
     (eL, gL), (eR, gR) = eyes
-    return {'eyes': [eL, eR], 'glint': [gL, gR], 'brows': [bl, brr], 'mouth': [m]}
+    return {
+        'eyes': [eL, eR],
+        'glint': [gL, gR],
+        'brows': [bl, brr],
+        'mouth': [m],
+        'tears': [_tear_stream(1, show_tears), _tear_stream(-1, show_tears)],
+        'blush': [_blush_cheek(1, show_blush), _blush_cheek(-1, show_blush)],
+    }
 
 
 def _vis_mouth(v):
-    return {'A': _mouth('D', w=0.13, cy=-0.225, a=0.008, d=0.13),
-            'O': _mouth('O', w=0.06, cy=-0.28, d=0.075),
-            'E': _mouth('open', w=0.16, cy=-0.27, a=0.025, d=0.045),
-            'M': _mouth('line', w=0.1, t=0.024)}[v]
+    return {
+        'A': _mouth('D', w=0.13, cy=-0.225, a=0.008, d=0.13),
+        'O': _mouth('O', w=0.06, cy=-0.28, d=0.075),
+        'E': _mouth('open', w=0.16, cy=-0.27, a=0.025, d=0.045),
+        'M': _mouth('line', w=0.1, t=0.024),
+    }[v]
 
 
-REGION_ORDER = ['eyes', 'brows', 'mouth', 'glint']
+REGION_ORDER = ['eyes', 'brows', 'mouth', 'glint', 'tears', 'blush']
 
 
 def _wrap(p, eps):
@@ -365,7 +417,7 @@ def _wrap(p, eps):
 def _flatten(shapes):
     out = []
     for reg in REGION_ORDER:
-        eps = EPS_GLINT if reg == 'glint' else EPS_FACE
+        eps = EPS_GLINT if reg == 'glint' else (EPS_FX if reg in ('tears', 'blush') else EPS_FACE)
         for top, bot in shapes[reg]:
             for i in range(NCOL):
                 out.append((top[i], eps)); out.append((bot[i], eps))
@@ -378,8 +430,9 @@ def _face_object(name, mats):
     verts = [_wrap(p, e) for p, e in flat]
     faces, fmat = [], []
     k = 0
-    for ri, reg in enumerate(REGION_ORDER):
-        mi = {'eyes': 0, 'brows': 0, 'mouth': 1, 'glint': 2}[reg]
+    mat_map = {'eyes': 0, 'brows': 0, 'mouth': 1, 'glint': 2, 'tears': 3, 'blush': 4}
+    for reg in REGION_ORDER:
+        mi = mat_map[reg]
         for _ in base[reg]:
             for i in range(NCOL - 1):
                 a = k + 2 * i
@@ -415,6 +468,11 @@ def _face_object(name, mats):
         add_key('eyes_' + e, sh, ['eyes', 'glint'])
         add_key('brows_' + e, sh, ['brows'])
         add_key('mouth_' + e, sh, ['mouth'])
+        if e == 'cry':
+            add_key('fx_cry', sh, ['tears'])
+        if e == 'blush':
+            add_key('fx_blush', sh, ['blush'])
+
     for v in VISEMES:
         sh = dict(base); sh['mouth'] = [_vis_mouth(v)]
         add_key('vis_' + v, sh, ['mouth'])
@@ -553,7 +611,6 @@ def _shade_col(col, f):
     return tuple(max(0.0, min(1.0, c * f)) for c in rgb)
 
 
-# ---------------------------------------------------------------- shirt prints (Beta Version)
 from pathlib import Path as _Path
 _WM = _Path(__file__).resolve().parents[1] / 'assets' / 'brand' / 'bv-wordmark-transparent.png'
 _WMB = "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"
@@ -614,7 +671,9 @@ def make_char(name, spec):
     pants = _parse_rgb(spec.get('pants'), (0.12, 0.16, 0.25))
     shoes = _parse_rgb(spec.get('shoes'), (0.12, 0.12, 0.14))
     hcol = _parse_rgb(spec.get('hair_color'), (0.20, 0.13, 0.08))
-    extras = spec.get('extras', [])
+    extras = list(spec.get('extras') or [])
+    gender = str(spec.get('gender', '')).lower()
+    is_fem = (gender == 'female') or ('skirt' in extras)
     sleeves = spec.get('sleeves', 'long' if 'cardigan' in extras else 'short')
 
     ad = bpy.data.armatures.new(name + '_rig')
@@ -650,28 +709,37 @@ def make_char(name, spec):
         _parent(ob, arm, bone)
         parts.append(ob)
 
-    add(_rbox(name + '_torso', (0, 0, 3.2), (2.0, 1.0, 1.6), M_shirt, bevel=0.1), 'torso', 'torso')
-    add(_rbox(name + '_hips', (0, 0, 2.2), (1.98, 0.98, 0.42), M_pants, bevel=0.1), 'torso', 'torso')
+    # Distinct male vs female silhouette
+    torso_w = 1.76 if is_fem else 2.04
+    torso_d = 0.92 if is_fem else 1.02
+    arm_w = 0.84 if is_fem else 0.98
+    arm_x = 1.34 if is_fem else 1.52
+
+    add(_rbox(name + '_torso', (0, 0, 3.2), (torso_w, torso_d, 1.6), M_shirt, bevel=0.12 if is_fem else 0.1), 'torso', 'torso')
+    add(_rbox(name + '_hips', (0, 0, 2.2), (1.92 if is_fem else 1.98, 0.96, 0.42), M_pants, bevel=0.1), 'torso', 'torso')
     add(_head_mesh(name + '_head', M_skin), 'head', 'head')
+
     for s, sd in ((1, 'L'), (-1, 'R')):
-        add(_rbox(name + '_upper_arm.' + sd, (1.5 * s, 0, 3.5), (0.96, 0.96, 1.0), M_shirt, bevel=0.1), 'upper_arm.' + sd, 'arm')
-        add(_rbox(name + '_lower_arm.' + sd, (1.5 * s, 0, 2.66), (0.94, 0.94, 0.68),
+        add(_rbox(name + '_upper_arm.' + sd, (arm_x * s, 0, 3.5), (arm_w, arm_w, 1.0), M_shirt, bevel=0.1), 'upper_arm.' + sd, 'arm')
+        add(_rbox(name + '_lower_arm.' + sd, (arm_x * s, 0, 2.66), (arm_w * 0.96, arm_w * 0.96, 0.68),
                   M_shirt if sleeves == 'long' else M_skin, bevel=0.1), 'lower_arm.' + sd, 'arm')
-        add(_rbox(name + '_hand.' + sd, (1.5 * s, 0, 2.15), (0.92, 0.92, 0.3), M_skin, bevel=0.1), 'hand.' + sd, 'arm')
-        add(_rbox(name + '_upper_leg.' + sd, (0.5 * s, 0, 1.5), (0.97, 0.97, 1.0), M_pants, bevel=0.1), 'upper_leg.' + sd, 'leg')
-        add(_rbox(name + '_lower_leg.' + sd, (0.5 * s, 0, 0.64), (0.96, 0.96, 0.72), M_pants, bevel=0.1), 'lower_leg.' + sd, 'leg')
-        add(_rbox(name + '_foot.' + sd, (0.5 * s, -0.06, 0.13), (0.96, 1.1, 0.26), M_shoes, bevel=0.08), 'foot.' + sd, 'leg')
+        add(_rbox(name + '_hand.' + sd, (arm_x * s, 0, 2.15), (arm_w * 0.92, arm_w * 0.92, 0.3), M_skin, bevel=0.1), 'hand.' + sd, 'arm')
+        add(_rbox(name + '_upper_leg.' + sd, (0.5 * s, 0, 1.5), (0.94 if is_fem else 0.98, 0.94 if is_fem else 0.98, 1.0), M_pants, bevel=0.1), 'upper_leg.' + sd, 'leg')
+        add(_rbox(name + '_lower_leg.' + sd, (0.5 * s, 0, 0.64), (0.92 if is_fem else 0.96, 0.92 if is_fem else 0.96, 0.72), M_pants, bevel=0.1), 'lower_leg.' + sd, 'leg')
+        add(_rbox(name + '_foot.' + sd, (0.5 * s, -0.06, 0.13), (0.94, 1.08, 0.26), M_shoes, bevel=0.08), 'foot.' + sd, 'leg')
 
     M_ink = _mat('rbx_face_ink', (0.015, 0.015, 0.02), rough=0.55)
     M_mouth = _mat('rbx_face_mouth', (0.06, 0.012, 0.015), rough=0.55)
     M_glint = _mat('rbx_face_glint', (1, 1, 1), rough=0.4, emit=True)
-    fo = _face_object(name + '_face', [M_ink, M_mouth, M_glint])
+    M_tears = _mat('rbx_face_tears', (0.18, 0.68, 1.0), rough=0.2, emit=True, emit_strength=0.6)
+    M_blush = _mat('rbx_face_blush', (0.96, 0.34, 0.46), rough=0.5, emit=True, emit_strength=0.25)
+    fo = _face_object(name + '_face', [M_ink, M_mouth, M_glint, M_tears, M_blush])
     fo['rbx_role'] = 'face'
     _parent(fo, arm, 'head')
 
-    hair_style = spec.get('hair', 'short')
+    hair_style = spec.get('hair', 'long' if is_fem else 'short')
     if hair_style not in HAIR_STYLES:
-        hair_style = 'short'
+        hair_style = 'long' if is_fem else 'short'
     for ob in _hair(name + '_hair', hair_style, M_hair,
                     _cmat(spec.get('cap_color', (0.1, 0.3, 0.85)), 'cap', rough=0.5)):
         ob['rbx_role'] = 'hair'
@@ -685,16 +753,17 @@ def make_char(name, spec):
         cc = _cmat(_shade_col(shirt, 0.92), 'collar', rough=0.5)
         for s in (1, -1):
             bmc = bmesh.new()
-            _add_rbox(bmc, (0.25 * s, -0.51, 3.86), (0.42, 0.08, 0.2), bevel=0.03, seg=2,
+            _add_rbox(bmc, (0.25 * s, -0.47 if is_fem else -0.51, 3.86), (0.42, 0.08, 0.2), bevel=0.03, seg=2,
                       rot=Euler((0, math.radians(-28 * s), 0)))
             me = bpy.data.meshes.new(name + '_collar' + str(s)); bmc.to_mesh(me); bmc.free()
             acc.append(_obj(name + '_collar' + str(s), me, cc))
     if 'tie' in extras:
         tc = _cmat(spec.get('tie_color', (0.8, 0.08, 0.08)), 'tie', rough=0.45)
-        acc.append(_rbox(name + '_tieknot', (0, -0.53, 3.85), (0.2, 0.08, 0.17), tc, bevel=0.03))
-        acc.append(_rbox(name + '_tie', (0, -0.525, 3.25), (0.24, 0.06, 1.0), tc, bevel=0.03))
+        y_off = -0.49 if is_fem else -0.53
+        acc.append(_rbox(name + '_tieknot', (0, y_off, 3.85), (0.2, 0.08, 0.17), tc, bevel=0.03))
+        acc.append(_rbox(name + '_tie', (0, y_off + 0.005, 3.25), (0.24, 0.06, 1.0), tc, bevel=0.03))
     if 'pocket' in extras:
-        acc.append(_rbox(name + '_pocket', (0.52, -0.51, 3.45), (0.38, 0.04, 0.34),
+        acc.append(_rbox(name + '_pocket', (0.48, -0.47 if is_fem else -0.51, 3.45), (0.36, 0.04, 0.34),
                          _cmat(_shade_col(shirt, 0.82), 'pocket', rough=0.5), bevel=0.03))
     if 'apron' in extras:
         ac = _cmat(spec.get('apron_color', (0.97, 0.97, 0.95)), 'apron', rough=0.55)
@@ -704,26 +773,26 @@ def make_char(name, spec):
                          _cmat((0.9, 0.55, 0.6), 'apronpk', rough=0.5), bevel=0.03))
     if 'cardigan' in extras:
         inner = _cmat(spec.get('inner_color', (0.96, 0.95, 0.9)), 'inner', rough=0.5)
-        acc.append(_rbox(name + '_inner', (0, -0.505, 3.35), (0.42, 0.04, 1.3), inner, bevel=0.02))
+        acc.append(_rbox(name + '_inner', (0, -0.47 if is_fem else -0.505, 3.35), (0.42, 0.04, 1.3), inner, bevel=0.02))
         bc = _cmat(_shade_col(shirt, 0.6), 'button', rough=0.4)
         for z in (3.5, 3.15, 2.8):
-            acc.append(_rbox(name + '_btn%.1f' % z, (0.27, -0.53, z), (0.08, 0.04, 0.08), bc, bevel=0.02))
+            acc.append(_rbox(name + '_btn%.1f' % z, (0.27, -0.49 if is_fem else -0.53, z), (0.08, 0.04, 0.08), bc, bevel=0.02))
     if 'skirt' in extras:
         sc_col = _cmat(spec.get('skirt_color', pants), 'skirt', rough=0.48)
-        acc.append(_rbox(name + '_skirt', (0, 0, 1.75), (2.06, 1.06, 0.68), sc_col, bevel=0.08))
+        acc.append(_rbox(name + '_skirt', (0, 0, 1.72), (2.04, 1.06, 0.72), sc_col, bevel=0.09))
     for ob in acc:
         ob['rbx_role'] = 'acc'
         _parent(ob, arm, 'torso')
         parts.append(ob)
 
-    prints = [_print_plane(name + '_print_back', (0, 0.512, 3.35), 1.6, back=True, plate=False)]
+    prints = [_print_plane(name + '_print_back', (0, 0.475 if is_fem else 0.512, 3.35), 1.45 if is_fem else 1.6, back=True, plate=False)]
     for ob in prints:
         ob['rbx_role'] = 'acc'; _parent(ob, arm, 'torso'); parts.append(ob)
     if hair_style == 'cap':
         cp = _print_plane(name + '_print_cap', (HEAD_C.x, HEAD_C.y - 0.735, HEAD_C.z + 0.62), 0.62, plate=False)
         cp['rbx_role'] = 'hair'; _parent(cp, arm, 'head')
 
-    h = spec.get('height', 1.0)
+    h = float(spec.get('height', 1.0))
     arm.scale = (h, h, h)
     arm['rbx_height'] = h
     arm['rbx_face'] = fo.name
@@ -736,14 +805,6 @@ def body_parts(arm):
 
 
 # ---------------------------------------------------------------- animation helpers
-def _key(dp_owner, path, frame, interp='LINEAR'):
-    dp_owner.keyframe_insert(path, frame=frame)
-
-
-def _set_interp(arm_or_key, interp='LINEAR'):
-    pass
-
-
 def place(arm, frame, loc, yaw_deg):
     arm.location = loc
     arm.rotation_euler = (0, 0, math.radians(yaw_deg))
@@ -760,30 +821,6 @@ def _arm_fk(side, fwd=0, out=0, elbow=0, spread=0, wrist=0):
     return {'upper_arm.' + s: _R(-fwd, -side * out, 0),
             'lower_arm.' + s: _R(-elbow, 0, side * spread),
             'hand.' + s: _R(-wrist, 0, 0)}
-
-
-def _arm_ik(side, target, pole=(0, 0.3, -1)):
-    s = 'L' if side > 0 else 'R'
-    S = Vector((1.5 * side, 0, SHOULDER_Z))
-    T = Vector(target)
-    d = T - S
-    D = min(d.length, L_UP + L_LO - 1e-3)
-    dn = d.normalized()
-    a = (L_UP ** 2 + D ** 2 - L_LO ** 2) / (2 * D)
-    h = math.sqrt(max(0, L_UP ** 2 - a * a))
-    p = Vector((pole[0] * side, pole[1], pole[2]))
-    p = (p - p.dot(dn) * dn).normalized()
-    E = S + dn * a + p * h
-    T2 = S + dn * D
-    u = (E - S).normalized()
-    f = (T2 - E).normalized()
-    nperp = f - f.dot(u) * u
-    if nperp.length < 1e-4:
-        nperp = Vector((0, -1, 0)) - Vector((0, -1, 0)).dot(u) * u
-    n = nperp.normalized()
-    Rm = Matrix((n.cross(u), -n, -u)).transposed()
-    e = math.degrees(u.angle(f))
-    return {'upper_arm.' + s: Rm, 'lower_arm.' + s: _R(-e, 0, 0), 'hand.' + s: _R()}
 
 
 def _leg(side, fwd=0, knee=0, foot=0, out=0):
@@ -882,7 +919,7 @@ def _static(anim, t):
         for s in (1, -1):
             P.update(_arm_fk(s, fwd=6, out=1, elbow=6))
         P['torso'] = _R(15 if anim == 'slump' else 13, 0, 0)
-        P['head'] = _R(24 if anim == 'slump' else 22, 0, 0)
+        P['head'] = _R(20 if anim == 'slump' else 18, 0, 0)
         root = Vector((0, 0, -0.05))
     elif anim == 'angry':
         sh = math.sin(2 * math.pi * 6 * t) * 1.2
@@ -980,6 +1017,14 @@ _EXPR_ALIASES = {
     'surprised': 'shock',
     'mad': 'angry',
     'upset': 'sad',
+    'crying': 'cry',
+    'tears': 'cry',
+    'weeping': 'cry',
+    'sobbing': 'cry',
+    'blushing': 'blush',
+    'shy': 'blush',
+    'flustered': 'blush',
+    'embarrassed': 'blush',
     'confused': 'think',
     'nervous': 'worried',
 }
@@ -1009,6 +1054,10 @@ def face(arm, frame, expr, viseme=None, blink=0.0, look=(0, 0), mix_from=None, m
         kb['eyes_' + e].value = ew
         kb['brows_' + e].value = w[e]
         kb['mouth_' + e].value = w[e] * (1 - vs)
+    if 'fx_cry' in kb:
+        kb['fx_cry'].value = w.get('cry', 0.0)
+    if 'fx_blush' in kb:
+        kb['fx_blush'].value = w.get('blush', 0.0)
     for v in VISEMES:
         kb['vis_' + v].value = vs if v == viseme else 0.0
     kb['look_x'].value = max(-1, min(1, look[0]))
