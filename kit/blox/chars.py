@@ -716,7 +716,6 @@ def make_char(name, spec):
         _parent(ob, arm, 'torso')
         parts.append(ob)
 
-    # Clean back & cap wordmark prints (no dark chest plate box)
     prints = [_print_plane(name + '_print_back', (0, 0.512, 3.35), 1.6, back=True, plate=False)]
     for ob in prints:
         ob['rbx_role'] = 'acc'; _parent(ob, arm, 'torso'); parts.append(ob)
