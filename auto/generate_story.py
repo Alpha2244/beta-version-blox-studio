@@ -16,13 +16,11 @@ CORPUS_PATH = os.path.join(VAULT_DIR, "master_script_corpus.json")
 VISUAL_BIBLE_PATH = os.path.join(VAULT_DIR, "visual_bible.json")
 
 MODELS = [
+    "gemini-2.5-flash",
     "gemini-3.8-flash",
     "gemini-3.6-flash",
     "gemini-3.5-flash-lite",
     "gemini-3.1-flash-lite",
-    "gemini-4-hydrogen",
-    "gemini-4-argon",
-    "gemini-2.5-flash",
     "gemma-4-31b-it",
 ]
 
@@ -32,22 +30,22 @@ RICH_SETS = [
 ]
 
 DEFAULT_CAST_UNIVERSE = {
-    "Leo": {"height": 1.0, "gender": "male", "role": "main_character", "skin": "#f5c29b", "hair": "spiky", "hair_color": "#261b14", "shirt": "#1e73f2", "pants": "#1b2234", "shoes": "#f2f4f8", "extras": []},
+    "Leo": {"height": 1.0, "gender": "male", "role": "main_character", "skin": "#f5c29b", "hair": "spiky", "hair_color": "#261b14", "shirt": "#1e73f2", "pants": "#1b2234", "shoes": "#f2f4f8", "extras": ["backpack"]},
     "Maya": {"height": 0.93, "gender": "female", "role": "sister_or_best_friend", "skin": "#f7c7a3", "hair": "pigtails", "hair_color": "#3b2316", "shirt": "#ff4f8b", "pants": "#2a2d43", "shoes": "#ffffff", "extras": ["skirt"]},
-    "Jake": {"height": 1.03, "gender": "male", "role": "rival_or_friend", "skin": "#e8b087", "hair": "short", "hair_color": "#1e1612", "shirt": "#e67e22", "pants": "#1d2432", "shoes": "#22262e", "extras": []},
-    "Max": {"height": 1.05, "gender": "male", "role": "brother", "skin": "#e8b087", "hair": "curly", "hair_color": "#1e1612", "shirt": "#22b855", "pants": "#1d2432", "shoes": "#f2f4f8", "extras": ["cap"]},
+    "Jake": {"height": 1.04, "gender": "male", "role": "rival_or_friend", "skin": "#e8b087", "hair": "short", "hair_color": "#1e1612", "shirt": "#e67e22", "pants": "#1d2432", "shoes": "#22262e", "extras": []},
+    "Max": {"height": 1.06, "gender": "male", "role": "brother", "skin": "#d99b6c", "hair": "curly", "hair_color": "#1e1612", "shirt": "#22b855", "pants": "#1d2432", "shoes": "#f2f4f8", "extras": ["cap"]},
     "Mom": {"height": 1.02, "gender": "female", "role": "mother", "skin": "#f5c29b", "hair": "bun", "hair_color": "#4a2c18", "shirt": "#9b51e0", "pants": "#25293a", "shoes": "#d8c3a5", "extras": ["cardigan"]},
     "Dad": {"height": 1.08, "gender": "male", "role": "father", "skin": "#eab38a", "hair": "short", "hair_color": "#2d221c", "shirt": "#2f80ed", "pants": "#1f2533", "shoes": "#3a2c22", "extras": ["tie"]},
     "Uncle_Sam": {"height": 1.06, "gender": "male", "role": "uncle", "skin": "#e2a77d", "hair": "short", "hair_color": "#5c5856", "shirt": "#f2994a", "pants": "#2c3342", "shoes": "#4a3728", "extras": ["glasses"]},
     "Ms_Clara": {"height": 1.02, "gender": "female", "role": "teacher", "skin": "#f6c9a6", "hair": "long", "hair_color": "#3d2516", "shirt": "#27ae60", "pants": "#1e2430", "shoes": "#2b2d42", "extras": ["glasses", "cardigan"]},
-    "Zoe": {"height": 0.96, "gender": "female", "role": "best_friend_female", "skin": "#c68658", "hair": "long", "hair_color": "#191412", "shirt": "#f2c94c", "pants": "#232938", "shoes": "#ffffff", "extras": ["skirt"]},
+    "Zoe": {"height": 0.96, "gender": "female", "role": "best_friend_female", "skin": "#c68658", "hair": "long", "hair_color": "#191412", "shirt": "#f2c94c", "pants": "#232938", "shoes": "#ffffff", "extras": ["skirt", "headphones"]},
     "Sam": {"height": 1.0, "gender": "male", "role": "best_friend_male", "skin": "#8d5524", "hair": "curly", "hair_color": "#141110", "shirt": "#eb5757", "pants": "#1c2230", "shoes": "#eeeeee", "extras": []},
 }
 
 BACKGROUND_CROWD_NPCS = {
-    "Townie_1": {"height": 1.0, "gender": "male", "skin": "#f2be96", "hair": "short", "hair_color": "#2b1d14", "shirt": "#00a8ff", "pants": "#2f3640", "shoes": "#ffffff"},
+    "Townie_1": {"height": 1.0, "gender": "male", "skin": "#f2be96", "hair": "short", "hair_color": "#2b1d14", "shirt": "#00a8ff", "pants": "#2f3640", "shoes": "#ffffff", "extras": []},
     "Townie_2": {"height": 0.96, "gender": "female", "skin": "#d99b6c", "hair": "long", "hair_color": "#3d2314", "shirt": "#fbc531", "pants": "#192a56", "shoes": "#ffffff", "extras": ["skirt"]},
-    "Townie_3": {"height": 1.03, "gender": "male", "skin": "#f5c7a3", "hair": "curly", "hair_color": "#1e272e", "shirt": "#4cd137", "pants": "#2f3640", "shoes": "#dddddd"},
+    "Townie_3": {"height": 1.03, "gender": "male", "skin": "#f5c7a3", "hair": "curly", "hair_color": "#1e272e", "shirt": "#4cd137", "pants": "#2f3640", "shoes": "#dddddd", "extras": []},
 }
 
 VALID_CAMS = {"ecu", "cu", "mcu", "ms", "mls", "ws", "low", "high", "ots", "two", "ews", "ground", "pov", "ins"}
@@ -72,9 +70,24 @@ FACE_ALIASES = {
     "confused": "think", "nervous": "worried",
 }
 
+SET_KEYWORDS = {
+    "Bedroom": ("bedroom", "my room", "his room", "her room", "the room", "closet", "bed"),
+    "Classroom": ("classroom", "school", "class", "desk", "teacher", "locker", "hallway"),
+    "LivingRoom": ("living room", "sofa", "couch", "tv", "home", "house"),
+    "Kitchen": ("kitchen", "fridge", "table", "dinner", "cooking"),
+    "Street": ("street", "road", "outside", "town", "car", "sidewalk"),
+    "Park": ("park", "trees", "bench", "grass"),
+    "Store": ("store", "shop", "mall", "buy", "cashier"),
+    "Gym": ("gym", "workout", "weights", "court"),
+    "Office": ("office", "principal", "boss", "meeting"),
+    "Backyard": ("backyard", "yard", "fence", "garden"),
+}
+
+WALK_VERBS = ("walk", "went", "go to", "going to", "enter", "came in", "headed", "stepped", "approached", "follow")
+RUN_VERBS = ("ran", "run", "running", "rushed", "chased", "fled", "sprinted", "bolted", "crowded")
+
 
 def hex_to_rgb01(val, fallback=(0.5, 0.5, 0.5)) -> list[float]:
-    """Convert '#rrggbb' or 3-tuple/list into linear-ready 0..1 RGB floats for Blender."""
     if isinstance(val, (list, tuple)) and len(val) >= 3:
         return [round(float(val[0]), 4), round(float(val[1]), 4), round(float(val[2]), 4)]
     s = str(val or "").strip().lstrip("#")
@@ -126,15 +139,14 @@ def load_training_context() -> tuple[dict, str, dict]:
         corpus = json.load(open(CORPUS_PATH, encoding="utf-8"))
         scripts = corpus.get("scripts", [])
         hooks = corpus.get("all_hooks", [])
-        sample_scripts = random.sample(scripts, min(6, len(scripts))) if scripts else []
-        sample_hooks = random.sample(hooks, min(12, len(hooks))) if hooks else []
+        sample_scripts = random.sample(scripts, min(5, len(scripts))) if scripts else []
+        sample_hooks = random.sample(hooks, min(10, len(hooks))) if hooks else []
         corpus_block = (
-            f"HARVESTED @craftee_films VAULT STATS ({corpus.get('total_scripts_collected', 0)} real scripts, "
-            f"avg {corpus.get('avg_words_per_sec', 4.75)} words/sec):\n"
-            f"PROVEN OPENING HOOKS:\n"
+            f"HARVESTED VAULT PACING ({corpus.get('avg_words_per_sec', 4.75)} words/sec):\n"
+            f"HOOK EXAMPLES:\n"
             + "\n".join(f"- {h}" for h in sample_hooks)
-            + "\n\nEXAMPLE SCRIPTS:\n"
-            + "\n---\n".join(f"[{s['id']}]: {s['full_script'][:550]}" for s in sample_scripts)
+            + "\n\nSCRIPT EXAMPLES:\n"
+            + "\n---\n".join(f"[{s['id']}]: {s['full_script'][:450]}" for s in sample_scripts)
         )
     return bp, corpus_block, visual_bible
 
@@ -178,135 +190,181 @@ def call_gemini_json_defensive(api_key: str, prompt: str, stage_label: str = "St
     raise RuntimeError(f"{stage_label} failed across all models ({last_err})")
 
 
-def apply_wardrobe_and_gender_locks(cast: dict, story_bible: dict) -> dict:
-    """Enforces distinct male/female hair & silhouettes, school uniform locks, and RGB 0..1 tuples."""
-    uniform_rule = story_bible.get("wardrobe_lock") or {}
-    is_school_uniform = bool(uniform_rule.get("is_school_uniform", False))
-    u_shirt = uniform_rule.get("shirt_hex", "#f2f4f8")
-    u_pants = uniform_rule.get("pants_hex", "#1e2a44")
-    u_tie = uniform_rule.get("tie_hex", "#b8293d")
+def apply_wardrobe_and_gender_locks(cast: dict) -> dict:
+    """Locks distinct signature colors, hairstyles, silhouettes & accessories for every character."""
+    distinct_palettes = [
+        ("#1e73f2", "#1b2234", "spiky", ["backpack"]),
+        ("#ff4f8b", "#2a2d43", "pigtails", ["skirt"]),
+        ("#e67e22", "#1d2432", "short", []),
+        ("#22b855", "#1d2432", "curly", ["cap"]),
+        ("#9b51e0", "#25293a", "bun", ["cardigan"]),
+        ("#f2c94c", "#232938", "long", ["skirt", "headphones"]),
+        ("#eb5757", "#1c2230", "curly", ["glasses"]),
+    ]
 
-    student_roles = {
-        "main_character", "sister", "brother", "sister_or_best_friend",
-        "rival_or_friend", "best_friend_female", "best_friend_male", "student",
-    }
-
-    for name, spec in cast.items():
+    for idx, (name, spec) in enumerate(cast.items()):
         if not isinstance(spec, dict):
             continue
-        gender = str(spec.get("gender", "")).lower()
-        extras = list(spec.get("extras") or [])
+        base = DEFAULT_CAST_UNIVERSE.get(name) or BACKGROUND_CROWD_NPCS.get(name)
+        pal_shirt, pal_pants, pal_hair, pal_extras = distinct_palettes[idx % len(distinct_palettes)]
 
-        # Clear visual gender differentiation (hair + height + outfit silhouette)
+        gender = str(spec.get("gender") or (base or {}).get("gender") or "male").lower()
         if gender == "female" or name in ("Maya", "Zoe", "Mom", "Ms_Clara", "Townie_2"):
             spec["gender"] = "female"
             spec["height"] = min(float(spec.get("height", 0.94)), 0.96) if name not in ("Mom", "Ms_Clara") else 1.01
-            if spec.get("hair") in (None, "short", "spiky"):
-                spec["hair"] = "pigtails" if name == "Maya" else "long"
+            raw_hair = spec.get("hair") or (base or {}).get("hair") or "long"
+            spec["hair"] = raw_hair if raw_hair in ("pigtails", "long", "bun") else "long"
+            extras = list(spec.get("extras") or (base or {}).get("extras") or ["skirt"])
             if "skirt" not in extras and name not in ("Mom", "Ms_Clara"):
                 extras.append("skirt")
         else:
             spec["gender"] = "male"
             spec["height"] = max(float(spec.get("height", 1.02)), 1.0)
-            if spec.get("hair") in (None, "pigtails", "bun"):
-                spec["hair"] = "spiky" if name == "Leo" else "short"
+            raw_hair = spec.get("hair") or (base or {}).get("hair") or pal_hair
+            spec["hair"] = raw_hair if raw_hair in ("spiky", "short", "curly", "cap", "bald") else "spiky"
+            extras = list(spec.get("extras") or (base or {}).get("extras") or pal_extras)
 
-        # Lock school uniform across ALL students if story takes place at school
-        role = str(spec.get("role", "")).lower()
-        if is_school_uniform and (role in student_roles or name in ("Leo", "Maya", "Jake", "Max", "Zoe", "Sam", "Townie_1", "Townie_2", "Townie_3")):
-            spec["shirt"] = u_shirt
-            spec["pants"] = u_pants
-            spec["tie_color"] = u_tie
-            if "tie" not in extras:
-                extras.append("tie")
-
-        # Normalize colors to 0..1 RGB lists so compile.py & chars.py render exact shades
-        spec["skin"] = hex_to_rgb01(spec.get("skin"), (0.96, 0.76, 0.61))
-        spec["shirt"] = hex_to_rgb01(spec.get("shirt"), (0.12, 0.45, 0.95))
-        spec["pants"] = hex_to_rgb01(spec.get("pants"), (0.11, 0.14, 0.21))
-        spec["shoes"] = hex_to_rgb01(spec.get("shoes"), (0.93, 0.94, 0.96))
-        spec["hair_color"] = hex_to_rgb01(spec.get("hair_color"), (0.16, 0.11, 0.08))
-        if "tie_color" in spec:
-            spec["tie_color"] = hex_to_rgb01(spec.get("tie_color"), (0.72, 0.16, 0.24))
-
-        spec["hair_style"] = spec.get("hair", "short")
+        # Preserve distinct character colors rather than forcing identical clothes
+        spec["skin"] = hex_to_rgb01(spec.get("skin") or (base or {}).get("skin"), (0.96, 0.76, 0.61))
+        spec["shirt"] = hex_to_rgb01(spec.get("shirt") or (base or {}).get("shirt") or pal_shirt, (0.12, 0.45, 0.95))
+        spec["pants"] = hex_to_rgb01(spec.get("pants") or (base or {}).get("pants") or pal_pants, (0.11, 0.14, 0.21))
+        spec["shoes"] = hex_to_rgb01(spec.get("shoes") or (base or {}).get("shoes"), (0.93, 0.94, 0.96))
+        spec["hair_color"] = hex_to_rgb01(spec.get("hair_color") or (base or {}).get("hair_color"), (0.16, 0.11, 0.08))
+        spec["hair_style"] = spec["hair"]
         spec["extras"] = list(dict.fromkeys(extras))
     return cast
 
 
-def enforce_speaker_focus_and_continuity(shots: list[dict], cast: dict) -> list[dict]:
+def infer_set_from_text(text: str, current_set: str, available_sets: list[str]) -> str:
+    low = text.lower()
+    for set_name, kws in SET_KEYWORDS.items():
+        if set_name in available_sets and any(k in low for k in kws):
+            return set_name
+    return current_set
+
+
+def choreograph_flow_continuity(shots: list[dict], cast: dict, available_sets: list[str]) -> list[dict]:
     """
-    1. Isolates the active speaker (`subject`) in close/medium shots so the camera cuts/rotates cleanly to the speaker.
-    2. Alternates camera side (-1 / +1) on cuts for smooth 3D spatial camera flow.
-    3. Chains character positions & `walkTo` trajectories continuously from shot N to shot N+1.
+    Flow-style Continuity & Action Director:
+    1. Switches `set` automatically when dialogue says characters go to a new room.
+    2. Keeps 2–4 characters on stage together so scenes feel alive, never empty.
+    3. Converts movement cues in text ('we go to room', 'ran', 'crowded') into real `walkTo` paths.
+    4. Tracks continuous XY positions from shot N to shot N+1 so characters actually move across the room.
     """
-    last_known_pos: dict[str, list[float]] = {}
-    last_known_yaw: dict[str, float] = {}
+    main_trio = [c for c in ("Leo", "Maya", "Jake") if c in cast] or list(cast.keys())[:3]
+    last_pos: dict[str, list[float]] = {}
     last_set: str | None = None
 
+    stage_slots = [
+        [-1.3, -0.3],
+        [1.3, 0.1],
+        [-0.2, 1.4],
+        [2.2, 1.3],
+    ]
+
     for idx, sh in enumerate(shots):
-        cur_set = sh.get("set", "LivingRoom")
-        if cur_set != last_set:
-            last_known_pos.clear()
-            last_known_yaw.clear()
+        txt = sh.get("text", "")
+        low_txt = txt.lower()
+        dur = max(1.15, float(sh.get("t1", 1.4)) - float(sh.get("t0", 0.0)))
+
+        # 1. Detect location transitions from narration text ("we go to the room")
+        inferred_set = infer_set_from_text(txt, sh.get("set", available_sets[0]), available_sets)
+        if inferred_set in available_sets:
+            sh["set"] = inferred_set
+
+        cur_set = sh["set"]
+        room_just_changed = cur_set != last_set
+        if room_just_changed:
+            last_pos.clear()
             last_set = cur_set
 
-        speaker = sh.get("subject", "Leo")
-        cam = sh.get("cam", "mcu")
-        dur = max(1.0, float(sh.get("t1", 1.35)) - float(sh.get("t0", 0.0)))
-        actors = sh.get("actors") or []
-
-        # Alternate camera angle side so cuts flow dynamically around the speaker
+        speaker = sh.get("subject") if sh.get("subject") in cast else main_trio[0]
+        sh["subject"] = speaker
         sh["side"] = 1 if idx % 2 == 0 else -1
 
-        if not any(a.get("who") == speaker for a in actors):
-            actors.insert(0, {"who": speaker, "at": [0.0, 0.0], "yaw": 0.0, "anim": "talk", "face": "neutral", "talk": [0.0, round(dur, 2)]})
+        # 2. Ensure multi-character staging (speaker + 1 to 2 co-stars in the scene)
+        actors = list(sh.get("actors") or [])
+        present_names = {a.get("who") for a in actors if a.get("who") in cast}
+        if speaker not in present_names:
+            actors.insert(0, {"who": speaker, "anim": "talk", "face": "neutral"})
+            present_names.add(speaker)
 
-        speaker_actor = next(a for a in actors if a.get("who") == speaker)
-        other_actors = [a for a in actors if a.get("who") != speaker]
+        for companion in main_trio:
+            if len(actors) >= 3:
+                break
+            if companion not in present_names:
+                actors.append({"who": companion, "anim": "idle", "face": "neutral"})
+                present_names.add(companion)
 
-        if cam in ("cu", "ecu", "mcu", "low", "high"):
-            kept_actors = [speaker_actor]
-            speaker_actor["at"] = last_known_pos.get(speaker, [0.0, 0.0])
-            speaker_actor["yaw"] = 14.0 if idx % 2 == 0 else -14.0
-            speaker_actor["talk"] = [0.0, round(dur, 2)]
-        else:
-            kept_actors = [speaker_actor] + other_actors[:2]
-            sp_x = -1.6 if idx % 2 == 0 else 1.6
-            speaker_actor["at"] = [sp_x, 0.0]
-            speaker_actor["yaw"] = 24.0 if sp_x < 0 else -24.0
-            speaker_actor["talk"] = [0.0, round(dur, 2)]
+        # Detect movement intent from dialogue or explicit anim
+        wants_run = any(v in low_txt for v in RUN_VERBS)
+        wants_walk = room_just_changed or any(v in low_txt for v in WALK_VERBS)
 
-            for o_idx, oa in enumerate(other_actors[:2]):
-                side_sign = 1.0 if sp_x < 0 else -1.0
-                ox = round(side_sign * (3.4 + o_idx * 1.4), 2)
-                oy = round(0.7 + o_idx * 1.5, 2)
-                oa["at"] = [ox, oy]
-                oa["yaw"] = round(-side_sign * 48.0, 1)
-                oa.pop("talk", None)
-
-        # Chain walk / run movement speed accurately across shots using `walkTo` (read by compile.py)
-        for act in kept_actors:
-            who = act.get("who", speaker)
-            anim = act.get("anim", "idle")
+        # 3. Assign continuous positions, facing angles, and walkTo trajectories
+        for a_idx, act in enumerate(actors[:4]):
+            who = act["who"]
+            is_speaker = (who == speaker)
             h = float((cast.get(who) or {}).get("height", 1.0))
-            if anim in ("walk", "run"):
-                speed = (4.0 if anim == "run" else 2.6) * h
-                dist = round(min(4.5, speed * dur * 0.65), 2)
-                start_pt = list(act.get("at", [0.0, 0.0]))
-                rad = math.radians(float(act.get("yaw", 0.0)))
-                end_pt = [
-                    round(max(-6.0, min(6.0, start_pt[0] + math.sin(rad) * dist)), 2),
-                    round(max(-3.0, min(5.0, start_pt[1] - math.cos(rad) * dist)), 2),
-                ]
-                act["walkTo"] = end_pt
-                last_known_pos[who] = end_pt
+
+            # Starting position: enter from doorway (-3.2) on room switch, otherwise continue from last_pos
+            if room_just_changed:
+                start_pt = [-3.0 + a_idx * 0.7, -0.5 + a_idx * 0.6]
+            elif who in last_pos:
+                start_pt = list(last_pos[who])
+            elif isinstance(act.get("at"), list) and len(act["at"]) >= 2:
+                start_pt = [float(act["at"][0]), float(act["at"][1])]
+            else:
+                start_pt = list(stage_slots[a_idx % len(stage_slots)])
+
+            act["at"] = [round(start_pt[0], 2), round(start_pt[1], 2)]
+
+            # Determine animation
+            cur_anim = act.get("anim", "idle")
+            if wants_run and (is_speaker or "everyone" in low_txt or "we" in low_txt):
+                cur_anim = "run"
+            elif wants_walk and (is_speaker or "we" in low_txt or "us" in low_txt):
+                cur_anim = "walk"
+            elif is_speaker and cur_anim in ("idle", None):
+                cur_anim = "talk"
+            elif not is_speaker and cur_anim in ("talk", None):
+                # Reactive listener poses instead of stiff idle
+                react_cycle = ["nod", "shock", "think", "point", "shrug"]
+                cur_anim = react_cycle[(idx + a_idx) % len(react_cycle)]
+
+            act["anim"] = cur_anim
+
+            if is_speaker:
+                act["talk"] = [0.0, round(dur, 2)]
+                act["yaw"] = 18.0 if start_pt[0] < 0 else -18.0
+            else:
+                act.pop("talk", None)
+                # Face toward the speaker
+                sp_x = last_pos.get(speaker, stage_slots[0])[0]
+                act["yaw"] = 45.0 if start_pt[0] < sp_x else -45.0
+
+            # Compute real `walkTo` destination so Blender animates full locomotion across the floor
+            if cur_anim in ("walk", "run") or isinstance(act.get("walkTo"), list):
+                if isinstance(act.get("walkTo"), list) and len(act["walkTo"]) >= 2 and not room_just_changed:
+                    end_pt = [float(act["walkTo"][0]), float(act["walkTo"][1])]
+                else:
+                    target_slot = stage_slots[a_idx % len(stage_slots)]
+                    if room_just_changed:
+                        end_pt = target_slot
+                    else:
+                        step = (3.4 if cur_anim == "run" else 2.2) * h * min(dur, 2.0) * 0.65
+                        dir_x = 1.0 if start_pt[0] <= 0.5 else -1.0
+                        dir_y = 0.4 if (idx % 2 == 0) else -0.4
+                        end_pt = [
+                            max(-4.5, min(4.5, start_pt[0] + dir_x * step)),
+                            max(-2.2, min(3.2, start_pt[1] + dir_y * step)),
+                        ]
+                act["walkTo"] = [round(end_pt[0], 2), round(end_pt[1], 2)]
+                last_pos[who] = list(act["walkTo"])
             else:
                 act.pop("walkTo", None)
-                last_known_pos[who] = list(act.get("at", [0.0, 0.0]))
-            last_known_yaw[who] = float(act.get("yaw", 0.0))
+                last_pos[who] = list(act["at"])
 
-        sh["actors"] = kept_actors
+        sh["actors"] = actors[:4]
 
     return shots
 
@@ -315,144 +373,156 @@ def run_gemini_director_pipeline(api_key: str, theme: str, bp: dict, corpus_bloc
     cast_universe = visual_bible.get("canonical_cast_universe") or DEFAULT_CAST_UNIVERSE
 
     # =========================================================================
-    # STAGE 1: Gemini Script & Continuity Breakdown (Story Bible, Locks, Sets)
+    # STAGE 1: Flow-Style Showrunner & Prompt Expander (Story + Location Bible)
     # =========================================================================
-    stage1_prompt = f"""You are the Head Showrunner & Continuity Supervisor for a 3D Roblox Reels studio.
+    stage1_prompt = f"""You are a Google Flow-style AI Video Showrunner & Prompt Expander for a 3D Roblox Reels engine.
 {corpus_block}
 
-USER THEME / IDEA:
-"{theme or 'A dramatic, emotional, fast-paced story starring Leo, Maya, and Jake with a hidden secret inside a bedroom closet and a school twist.'}"
+USER THEME / PROMPT:
+"{theme or 'Leo, Maya, and Jake discover a glowing secret box in the classroom, rush into Maya bedroom to open it, and get shocked by what is inside.'}"
 
-AVAILABLE CANONICAL CHARACTERS (keep their names, genders, hair & personalities locked!):
+CANONICAL CAST (keep each character's distinct signature colors, hair & personality):
 {json.dumps(cast_universe, indent=2)}
 
-TASK — STAGE 1 (SCRIPT & CONTINUITY BIBLE):
-1. Write a tight 24-to-28-beat spoken script (max 8 words per beat) with a viral 3-second hook, rising tension, emotional climax (crying/blushing/shock), and twist ending.
-2. Extract EVERY prop, room, closet, door, pencil, letter, or object mentioned ANYWHERE in the script so it can be placed in the 3D set from Shot 1!
-3. Decide wardrobe locks: if ANY beat happens at school/classroom, set `"is_school_uniform": true` with exact `shirt_hex`, `pants_hex`, `tie_hex` so EVERY student wears the exact same school uniform in every shot.
-4. Interlink the first beat and final beat visually and narratively so the ending loops or resolves cleanly.
+TASK — EXPAND PROMPT INTO CONTINUOUS MULTI-LOCATION STORY:
+1. Write a fast, high-energy 16-to-20-beat spoken script (6–9 words per beat, ~45 seconds total) with a viral 3-second hook, physical movement across at least 2 distinct rooms (e.g. Classroom -> Bedroom or LivingRoom -> Backyard), rich actions, and a twist ending.
+2. For EVERY beat, specify:
+   - `set`: the exact room name from {json.dumps(RICH_SETS)} (MUST change when characters go to another room!).
+   - `speaker`: who is talking.
+   - `line`: spoken dialogue.
+   - `action_direction`: explicit physical movement & multi-character blocking (e.g. "Leo and Maya walk quickly toward the door while Jake points in shock").
+   - `emotion`: facial expression.
+   - `camera_shot`: dynamic angle (`mcu`, `cu`, `two`, `ws`, `ots`, `low`, `ins`).
 
 Return ONLY valid JSON:
 {{
   "title": "Viral title",
   "caption": "Caption with 5 hashtags",
   "keys": ["6", "IMPACT", "WORDS", "IN", "CAPS", "HERE"],
-  "wardrobe_lock": {{
-    "is_school_uniform": false,
-    "shirt_hex": "#f2f4f8",
-    "pants_hex": "#1e2a44",
-    "tie_hex": "#b8293d"
-  }},
-  "required_sets": ["Bedroom", "Classroom"],
+  "required_sets": ["Classroom", "Bedroom"],
   "required_custom_props": [
-    {{"name": "WoodenCloset", "set": "Bedroom", "at": [2.8, 3.6, 0], "description": "Tall brown double-door bedroom closet with brass handles, visible from Shot 1"}}
+    {{"name": "GlowingMysteryBox", "set": "Bedroom", "at": [0.0, 1.5, 0], "description": "Golden glowing mystery box on the bedroom floor"}}
   ],
   "active_cast": ["Leo", "Maya", "Jake"],
   "beats": [
     {{
       "beat": 1,
-      "set": "Bedroom",
-      "speaker": "Maya",
-      "line": "Jake swore nobody knew what was inside my closet!",
-      "emotion": "worried",
-      "action": "talk",
-      "camera_goal": "Medium close-up on Maya speaking while the WoodenCloset is visible behind her"
+      "set": "Classroom",
+      "speaker": "Leo",
+      "line": "Guys, look what I just found under my desk!",
+      "action_direction": "Leo holds up a glowing box while Maya and Jake rush over to see it",
+      "emotion": "shock",
+      "camera_shot": "two"
     }}
   ]
 }}"""
 
-    bible = call_gemini_json_defensive(api_key, stage1_prompt, stage_label="Stage1-Bible")
+    bible = call_gemini_json_defensive(api_key, stage1_prompt, stage_label="Stage1-FlowExpander")
 
     # =========================================================================
-    # STAGE 2: Gemini Custom 3D Asset & Rich Room Builder (`things` + `places`)
+    # STAGE 2: Flow Location Profiles (`places`) & Custom Props (`things`)
     # =========================================================================
-    stage2_prompt = f"""You are the 3D Roblox Environment & Prop Modeler for Blender.
-Based on this Story Bible, build rich, fully furnished 3D rooms (`places`) and every custom 3D prop (`things`) so NO room ever looks empty or plain!
+    stage2_prompt = f"""You are the 3D Environment & Prop Architect.
+Build rich, fully furnished 3D Location Profiles (`places`) and custom props (`things`) for this Story Bible so backgrounds stay spatially consistent across cuts.
 
 STORY BIBLE:
 {json.dumps(bible, indent=2)}
 
-RULES FOR 3D MODELING IN `things` AND `places`:
-1. Every item in `required_custom_props` MUST be built in `things` using blocky Roblox primitives:
-  - `["block", "#hex", [width_x, depth_y, height_z], [x, y, z], {{"metal": false, "glow": 0.0}}]`
-  - `["tube", "#hex", radius, height, [x, y, z]]`
-  - `["cone", "#hex", radius, height, [x, y, z]]`
-  - `["ball", "#hex", radius, [x, y, z]]`
-2. Every set in `required_sets` MUST be defined in `places` with rich furniture density (at least 6–10 props per room).
-3. Keep the center stage (`x` between `-2.5` and `+2.5`, `y` between `-1.5` and `+2.2`) clear for characters to walk and act.
+RULES:
+1. Define every item in `required_custom_props` inside `things` using primitives:
+   - `["block", "#hex", [width_x, depth_y, height_z], [x, y, z], {{"metal": false, "glow": 0.0}}]`
+   - `["tube", "#hex", radius, height, [x, y, z]]`
+   - `["ball", "#hex", radius, [x, y, z]]`
+2. Define every room in `required_sets` inside `places` with 6–10 props placed around the perimeter (`x` outside `-2.2..2.2` or `y > 2.2`) so the center floor stays open for walking and group action.
 
 Return ONLY valid JSON:
 {{
   "things": {{
-    "WoodenCloset": [
-      ["block", "#7a4b2a", [2.2, 1.1, 3.6], [0, 0, 1.8]],
-      ["block", "#5c361c", [0.06, 1.14, 3.5], [0, 0, 1.8]],
-      ["ball", "#e6b830", 0.09, [-0.18, -0.58, 1.75], {{"metal": true}}],
-      ["ball", "#e6b830", 0.09, [0.18, -0.58, 1.75], {{"metal": true}}]
+    "GlowingMysteryBox": [
+      ["block", "#d4af37", [0.8, 0.8, 0.6], [0, 0, 0.3], {{"metal": true, "glow": 0.6}}],
+      ["block", "#ff3b30", [0.84, 0.84, 0.12], [0, 0, 0.58], {{"metal": false, "glow": 0.2}}]
     ]
   }},
   "places": {{
+    "Classroom": {{
+      "kind": "indoor",
+      "wall": "#dfe6e9",
+      "lower": "#74b9ff",
+      "floor": "wood",
+      "floor_color": "#b28253",
+      "props": [
+        ["blackboard", 0.0, 4.2, 0],
+        ["desk", -2.8, 1.8, 0],
+        ["desk", 2.8, 1.8, 0],
+        ["chair", -2.8, 0.9, 0],
+        ["chair", 2.8, 0.9, 0],
+        ["bookshelf", -4.2, 3.5, 90],
+        ["plant", 4.1, 3.6, 0]
+      ]
+    }},
     "Bedroom": {{
       "kind": "indoor",
-      "wall": "#e8dfd1",
-      "lower": "#c9b99f",
+      "wall": "#f5ebe0",
+      "lower": "#d5bdaf",
       "floor": "wood",
       "floor_color": "#8c5e35",
       "props": [
-        ["WoodenCloset", 2.8, 3.8, 0, {{"name": "WoodenCloset"}}],
+        ["GlowingMysteryBox", 0.0, 2.2, 0, {{"name": "GlowingMysteryBox"}}],
         ["bed", -3.4, 3.2, 90],
-        ["desk", -3.6, -0.8, 90],
-        ["office_chair", -2.7, -0.8, -90],
-        ["rug", 0.0, 0.5, 0],
-        ["floor_lamp", 4.2, 3.6, 0],
-        ["poster", -1.2, 4.3, 0],
-        ["plant", 4.1, -1.5, 0]
+        ["desk", 3.5, 2.5, -90],
+        ["chair", 2.6, 2.5, 90],
+        ["rug", 0.0, 0.4, 0],
+        ["floor_lamp", -4.1, -1.0, 0],
+        ["poster", 1.2, 4.3, 0]
       ]
     }}
   }}
 }}"""
 
-    assets = call_gemini_json_defensive(api_key, stage2_prompt, stage_label="Stage2-Assets")
+    assets = call_gemini_json_defensive(api_key, stage2_prompt, stage_label="Stage2-Locations")
 
     # =========================================================================
-    # STAGE 3: Gemini Master Choreography, Camera Cuts & Emotion Timeline
+    # STAGE 3: Flow Scene-by-Scene Blocking, Walking Paths & Camera Cuts
     # =========================================================================
-    stage3_prompt = f"""You are the Lead Animator & Cinematographer for this Roblox Reel.
-Combine the Story Bible and 3D Sets into the final shot-by-shot `shots` timeline.
+    stage3_prompt = f"""You are the Lead 3D Choreographer & Cinematographer.
+Convert EVERY beat in the Story Bible into an action-packed 3D shot with 2–3 characters on stage, real XY walking trajectories (`at` -> `walkTo`), and dynamic camera angles.
 
 STORY BIBLE:
 {json.dumps(bible, indent=2)}
 
-3D ASSETS BUILT:
+CUSTOM PROPS:
 {json.dumps(list((assets.get("things") or {}).keys()))}
 
-STRICT CINEMATOGRAPHY & EMOTION RULES:
-1. **SPEAKER CAMERA LOCK**: Whoever is speaking (`subject`) in that beat MUST be the focus of the camera! Use `"mcu"`, `"cu"`, or `"ots"` when one person is speaking.
-2. **DYNAMIC CAMERA VARIETY**: Alternate camera angles every shot (`mcu` -> `cu` -> `ins` -> `two` -> `low` -> `ots` -> `ws`) and moves (`crash_in`, `push`, `reveal_push`, `creep`, `drift`). Use `"cam": "ins", "focus": "<CustomPropName>"` whenever a key prop is revealed!
-3. **FULL EMOTIONAL RANGE**: Use `"cry"`, `"blush"`, `"shock"`, `"angry"`, `"scared"`, `"worried"`, `"laugh"`, `"smug"`, `"sad"`, `"smile"`.
-4. **ALLOWED ANIMS**: {json.dumps(sorted(VALID_ANIMS))}.
-5. **ALLOWED FACES**: {json.dumps(sorted(VALID_FACES))}.
+CHOREOGRAPHY RULES:
+1. Keep 2–3 characters visible in EVERY shot (`actors` list). Never leave a single character standing alone unless it is an `ecu` reaction!
+2. Whenever characters move, walk, run, or enter a room, set `"anim": "walk"` or `"run"` AND provide distinct `"at": [x1, y1]` and `"walkTo": [x2, y2]` coordinates!
+3. When `"set"` changes from the previous beat, place characters entering from `[-2.8, -0.4]` walking toward `[0.0, 0.2]`.
+4. Alternate `"cam"` across consecutive shots (`ws`, `two`, `mcu`, `ots`, `cu`, `low`, `ins`).
+5. ALLOWED ANIMS: {json.dumps(sorted(VALID_ANIMS))}.
+6. ALLOWED FACES: {json.dumps(sorted(VALID_FACES))}.
 
 Return ONLY valid JSON:
 {{
-  "music": [[0, "playful"], [0.4, "suspense"], [0.75, "hit"], [0.85, "triumph"]],
+  "music": [[0, "playful"], [0.45, "suspense"], [0.75, "hit"], [0.85, "triumph"]],
   "shots": [
     {{
-      "set": "Bedroom",
+      "set": "Classroom",
       "mood": "sunny",
-      "cam": "mcu",
+      "cam": "two",
       "move": "push",
-      "subject": "Maya",
-      "text": "Jake swore nobody knew what was inside my closet!",
+      "subject": "Leo",
+      "text": "Guys, look what I just found under my desk!",
       "sfx": ["whoosh@0.0"],
       "actors": [
-        {{"who": "Maya", "at": [0.0, 0.0], "yaw": -12, "anim": "talk", "face": "worried", "talk": [0.0, 1.3]}}
+        {{"who": "Leo", "at": [-1.2, 0.0], "walkTo": [-0.4, 0.2], "yaw": 25, "anim": "walk", "face": "grin", "talk": [0.0, 1.5]}},
+        {{"who": "Maya", "at": [1.8, 0.4], "walkTo": [0.8, 0.2], "yaw": -45, "anim": "walk", "face": "shock"}},
+        {{"who": "Jake", "at": [2.4, -0.6], "yaw": -35, "anim": "point", "face": "surprised"}}
       ]
     }}
   ]
 }}"""
 
-    choreography = call_gemini_json_defensive(api_key, stage3_prompt, stage_label="Stage3-Choreography")
+    choreography = call_gemini_json_defensive(api_key, stage3_prompt, stage_label="Stage3-Blocking")
 
     cast_out = {}
     active_names = set(bible.get("active_cast") or []) | {"Leo", "Maya", "Jake"}
@@ -476,34 +546,38 @@ Return ONLY valid JSON:
 
     for tname, tdata in BACKGROUND_CROWD_NPCS.items():
         cast_out[tname] = dict(tdata)
-    cast_out = apply_wardrobe_and_gender_locks(cast_out, bible)
+    cast_out = apply_wardrobe_and_gender_locks(cast_out)
 
     return {
-        "title": bible.get("title", "The Secret Inside Maya's Closet!"),
-        "caption": bible.get("caption", "Wait until you see what Jake hid inside! #roblox #storytime #shorts #reels #fyp"),
-        "keys": bible.get("keys", ["SECRET", "CLOSET", "JAKE", "MAYA", "SHOCKED", "TRUTH"]),
+        "title": bible.get("title", "The Secret Glowing Box!"),
+        "caption": bible.get("caption", "Wait until they open it in the bedroom! #roblox #storytime #shorts #reels #fyp"),
+        "keys": bible.get("keys", ["SECRET", "BOX", "BEDROOM", "LEO", "MAYA", "SHOCKED"]),
         "music": choreography.get("music", [[0, "playful"], [0.45, "suspense"], [0.75, "hit"], [0.85, "triumph"]]),
         "things": assets.get("things") or {},
         "places": assets.get("places") or {},
         "cast": cast_out,
         "shots": choreography.get("shots") or [],
-        "model_used": choreography.get("_model_used", "gemini-director"),
+        "model_used": choreography.get("_model_used", "gemini-flow-director"),
     }
 
 
 def build_offline_fast_story(cast_universe: dict) -> dict:
     beats = [
-        ("Bedroom", "sunny", "mcu", "crash_in", "Maya", "Jake swore nobody knew what was in my closet!", "talk", "worried", ["whoosh@0.0"], None),
-        ("Bedroom", "sunny", "ins", "push", "Maya", "Then I saw the wooden closet door shaking!", "shock", "shock", ["ding@0.1"], "WoodenCloset"),
-        ("Bedroom", "sunny", "cu", "push", "Jake", "Jake turned bright red and tried to block me!", "surrender", "blush", ["pop@0.0"], None),
-        ("Bedroom", "sunny", "cu", "crash_in", "Maya", "Tears rolled down my face when I opened it!", "sad", "cry", ["boom@0.0"], None),
-        ("Bedroom", "sunny", "two", "reveal_push", "Jake", "He had built a giant surprise birthday trophy!", "jump_joy", "smile", ["cash@0.0"], None),
+        ("Classroom", "sunny", "two", "crash_in", "Leo", "Guys, look what I found in the classroom!", "point", "grin", ["whoosh@0.0"], None),
+        ("Classroom", "sunny", "ws", "push", "Maya", "Quick, let's go to my bedroom before anyone sees!", "walk", "worried", ["pop@0.0"], None),
+        ("Bedroom", "sunny", "ws", "reveal_push", "Leo", "We ran into the room and locked the door!", "walk", "shock", ["whoosh@0.0"], None),
+        ("Bedroom", "sunny", "ins", "push", "Maya", "The golden box started glowing on the floor!", "shock", "shock", ["ding@0.1"], "GlowingMysteryBox"),
+        ("Bedroom", "sunny", "two", "crash_in", "Jake", "No way, it's filled with unlimited robux!", "jump_joy", "laugh", ["cash@0.0"], None),
     ]
     shots = []
-    for st, md, cm, mv, subj, txt, anim, face, sfx, focus_thing in beats:
+    for idx, (st, md, cm, mv, subj, txt, anim, face, sfx, focus_thing) in enumerate(beats):
         sh = {
             "set": st, "mood": md, "cam": cm, "move": mv, "subject": subj, "text": txt, "sfx": sfx,
-            "actors": [{"who": subj, "at": [0.0, 0.0], "yaw": 12, "anim": anim, "face": face, "talk": [0.0, 1.3]}],
+            "actors": [
+                {"who": "Leo", "at": [-1.2, 0.0], "walkTo": [-0.3, 0.2], "yaw": 20, "anim": anim, "face": face, "talk": [0.0, 1.5]},
+                {"who": "Maya", "at": [1.4, 0.3], "walkTo": [0.7, 0.1], "yaw": -35, "anim": "walk" if "go" in txt or "ran" in txt else "shock", "face": "shock"},
+                {"who": "Jake", "at": [2.1, -0.5], "yaw": -45, "anim": "point", "face": "grin"},
+            ],
         }
         if focus_thing:
             sh["focus"] = focus_thing
@@ -511,21 +585,33 @@ def build_offline_fast_story(cast_universe: dict) -> dict:
 
     raw_cast = {k: dict(v) for k, v in cast_universe.items()}
     raw_cast.update({k: dict(v) for k, v in BACKGROUND_CROWD_NPCS.items()})
-    cast_out = apply_wardrobe_and_gender_locks(raw_cast, {})
+    cast_out = apply_wardrobe_and_gender_locks(raw_cast)
 
     return {
-        "title": "What Jake Hid Inside Maya's Closet!",
-        "caption": "She cried when she opened the door! #roblox #storytime #shorts #reels #fyp",
-        "keys": ["CLOSET", "JAKE", "MAYA", "BLUSHED", "TEARS", "SURPRISE"],
+        "title": "What We Found Inside The Classroom!",
+        "caption": "We rushed to the bedroom to open it! #roblox #storytime #shorts #reels #fyp",
+        "keys": ["SECRET", "CLASSROOM", "BEDROOM", "GLOWING", "SHOCKED", "TWIST"],
         "music": [[0, "playful"], [0.4, "suspense"], [0.75, "hit"], [0.85, "triumph"]],
         "things": {
-            "WoodenCloset": [
-                ["block", "#7a4b2a", [2.2, 1.1, 3.6], [0, 0, 1.8]],
-                ["ball", "#e6b830", 0.09, [-0.18, -0.58, 1.75], {"metal": True}],
-                ["ball", "#e6b830", 0.09, [0.18, -0.58, 1.75], {"metal": True}],
+            "GlowingMysteryBox": [
+                ["block", "#d4af37", [0.8, 0.8, 0.6], [0, 0, 0.3], {"metal": True, "glow": 0.6}],
+                ["block", "#ff3b30", [0.84, 0.84, 0.12], [0, 0, 0.58], {"metal": False, "glow": 0.2}],
             ]
         },
         "places": {
+            "Classroom": {
+                "kind": "indoor",
+                "wall": "#dfe6e9",
+                "lower": "#74b9ff",
+                "floor": "wood",
+                "floor_color": "#b28253",
+                "props": [
+                    ["blackboard", 0.0, 4.2, 0],
+                    ["desk", -2.8, 1.8, 0],
+                    ["desk", 2.8, 1.8, 0],
+                    ["bookshelf", -4.2, 3.5, 90],
+                ],
+            },
             "Bedroom": {
                 "kind": "indoor",
                 "wall": "#e8dfd1",
@@ -533,14 +619,13 @@ def build_offline_fast_story(cast_universe: dict) -> dict:
                 "floor": "wood",
                 "floor_color": "#8c5e35",
                 "props": [
-                    ["WoodenCloset", 2.8, 3.8, 0, {"name": "WoodenCloset"}],
+                    ["GlowingMysteryBox", 0.0, 2.2, 0, {"name": "GlowingMysteryBox"}],
                     ["bed", -3.4, 3.2, 90],
-                    ["desk", -3.6, -0.8, 90],
+                    ["desk", 3.5, 2.5, -90],
                     ["rug", 0.0, 0.5, 0],
-                    ["floor_lamp", 4.2, 3.6, 0],
-                    ["poster", -1.2, 4.3, 0],
+                    ["floor_lamp", -4.1, -1.0, 0],
                 ],
-            }
+            },
         },
         "shots": shots,
         "cast": cast_out,
@@ -559,7 +644,7 @@ def main(project_dir: str):
             raise RuntimeError("GEMINI_API_KEY empty")
         story = run_gemini_director_pipeline(api_key, theme, bp, corpus_block, visual_bible)
     except Exception as e:
-        print(f"[WARN] Gemini Director fallback engaged ({e}); using offline closet story.", flush=True)
+        print(f"[WARN] Gemini Director fallback engaged ({e}); using offline multi-room story.", flush=True)
         story = build_offline_fast_story(cast_universe)
 
     cast_names = list(story["cast"].keys())
@@ -569,13 +654,15 @@ def main(project_dir: str):
         story = build_offline_fast_story(cast_universe)
         shots = story["shots"]
 
+    available_sets = list(dict.fromkeys(list((story.get("places") or {}).keys()) + RICH_SETS))
+
     t_cursor = 0.0
     prev_cam = None
-    cam_cycle = ["mcu", "cu", "ots", "mcu", "two", "low", "cu", "ws"]
+    cam_cycle = ["two", "mcu", "ws", "ots", "cu", "low", "ms", "cu"]
 
     for idx, sh in enumerate(shots):
-        if sh.get("set") not in set(RICH_SETS) and sh.get("set") not in (story.get("places") or {}):
-            sh["set"] = list((story.get("places") or {}).keys())[0] if story.get("places") else "Bedroom"
+        if sh.get("set") not in available_sets:
+            sh["set"] = available_sets[0]
         if sh.get("mood") not in VALID_MOODS:
             sh["mood"] = "sunny"
 
@@ -588,10 +675,10 @@ def main(project_dir: str):
         if sh.get("move") not in VALID_MOVES:
             sh["move"] = "crash_in" if idx % 3 == 0 else "push"
         if sh.get("subject") not in cast_names:
-            sh["subject"] = "Maya" if "Maya" in cast_names else cast_names[0]
+            sh["subject"] = "Leo" if "Leo" in cast_names else cast_names[0]
 
         words_cnt = len(re.findall(r"\w+", sh.get("text", "")))
-        beat_dur = max(1.15, min(2.4, round(words_cnt / 4.2, 2)))
+        beat_dur = max(1.25, min(2.5, round(words_cnt / 4.2, 2)))
         sh["t0"] = round(t_cursor, 2)
         t_cursor += beat_dur
         sh["t1"] = round(t_cursor, 2)
@@ -609,7 +696,7 @@ def main(project_dir: str):
                     if isinstance(pair, list) and len(pair) >= 2
                 ]
 
-    story["shots"] = enforce_speaker_focus_and_continuity(shots, story["cast"])
+    story["shots"] = choreograph_flow_continuity(shots, story["cast"], available_sets)
     story["dur"] = round(t_cursor, 2)
 
     with open(os.path.join(project_dir, "timed.json"), "w", encoding="utf-8") as f:
@@ -629,7 +716,8 @@ def main(project_dir: str):
         )
 
     print(
-        f"[Director] Built {len(story['shots'])} shots | custom_things={sorted(custom_things)} | model={story.get('model_used')}",
+        f"[FlowDirector] Built {len(story['shots'])} shots across {sorted({s['set'] for s in story['shots']})} | "
+        f"custom_things={sorted(custom_things)} | model={story.get('model_used')}",
         flush=True,
     )
 
