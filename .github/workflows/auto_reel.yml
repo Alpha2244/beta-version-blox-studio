@@ -12,9 +12,9 @@ on:
         required: false
         default: "kokoro"
       voice_tempo:
-        description: "Final narration pace multiplier (1.35 to 1.55; default 1.45 fast)"
+        description: "Final narration pace multiplier (1.15 to 1.45; default 1.25)"
         required: false
-        default: "1.45"
+        default: "1.25"
   schedule:
     # Runs daily at 14:00 UTC (7:00 PM PKT)
     - cron: "0 14 * * *"
@@ -86,7 +86,7 @@ jobs:
           sudo chmod +x /usr/local/bin/blender_headless
           echo "BLENDER=/usr/local/bin/blender_headless" >> $GITHUB_ENV
 
-      - name: 5. Generate Vault-Trained Fast-Paced Story & Shot List (Gemini Cascade)
+      - name: 5. Generate Vault-Trained Story & Shot List (Gemini + Procedural Director)
         env:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           STORY_THEME: ${{ github.event.inputs.story_theme }}
@@ -98,262 +98,66 @@ jobs:
           echo "PROJ_DIR=$PROJ_DIR" >> $GITHUB_ENV
           python auto/generate_story.py "$PROJ_DIR"
 
-      - name: 6. Synthesize Fast Voice (vo.wav) & Word Timestamps (words.json)
+      - name: 6. Synthesize Per-Character Voice (vo.wav) & Word Timestamps (words.json)
         env:
           VOICE_ENGINE: ${{ github.event.inputs.voice_engine || 'kokoro' }}
-          VOICE_TEMPO: ${{ github.event.inputs.voice_tempo || '1.45' }}
+          VOICE_TEMPO: ${{ github.event.inputs.voice_tempo || '1.25' }}
           ELEVENLABS_API_KEY: ${{ secrets.ELEVENLABS_API_KEY }}
           ELEVENLABS_VOICE_ID: ${{ secrets.ELEVENLABS_VOICE_ID }}
-          VOICE_SPEED: "1.20"
+          VOICE_SPEED: "1.12"
         run: |
-          python auto/elevenlabs_voice.py "$PROJ_DIR"
+          if [ "$VOICE_ENGINE" = "elevenlabs" ] && [ -n "$ELEVENLABS_API_KEY" ]; then
+            python auto/elevenlabs_voice.py "$PROJ_DIR"
+          else
+            python kit/blox/voice.py "$PROJ_DIR"
+          fi
           test -s "$PROJ_DIR/vo.wav"
           test -s "$PROJ_DIR/words.json"
 
-      - name: 7. Bulletproof Sanitize + Compile 3D Scene & Bake Full Colors
+      - name: 7. Compile 3D Scene & Configure Bright Vibrant Lighting
         run: |
-          python - << 'EOF'
-          import ast, json, os
-
-          # =========================================================================
-          # LAYER 1: AST-Level Guaranteed Replacement of _parse_rgb & _hex in code
-          # =========================================================================
-          def replace_func_ast(filepath, func_name, new_func_code):
-              with open(filepath, "r", encoding="utf-8") as f:
-                  src = f.read()
-              tree = ast.parse(src)
-              lines = src.splitlines(keepends=True)
-              target = None
-              for node in tree.body:
-                  if isinstance(node, ast.FunctionDef) and node.name == func_name:
-                      target = node
-                      break
-              if target is None:
-                  # Append if missing
-                  src = new_func_code + "\n\n" + src
-              else:
-                  start = target.lineno - 1
-                  end = target.end_lineno
-                  src = "".join(lines[:start]) + new_func_code + "\n" + "".join(lines[end:])
-              with open(filepath, "w", encoding="utf-8") as f:
-                  f.write(src)
-              print(f"[AST-Patch] Replaced {func_name}() in {filepath}")
-
-          SAFE_PARSE_RGB = '''def _parse_rgb(col, default=(0.8, 0.8, 0.8)):
-              _NAMED = {
-                  'red': (0.85, 0.2, 0.2), 'blue': (0.2, 0.45, 0.85), 'green': (0.2, 0.7, 0.3),
-                  'yellow': (0.95, 0.8, 0.2), 'gold': (0.95, 0.75, 0.15), 'white': (0.95, 0.95, 0.95),
-                  'black': (0.1, 0.1, 0.12), 'gray': (0.5, 0.5, 0.52), 'grey': (0.5, 0.5, 0.52),
-                  'brown': (0.45, 0.28, 0.16), 'orange': (0.95, 0.48, 0.15), 'purple': (0.55, 0.25, 0.75),
-                  'pink': (0.95, 0.55, 0.7), 'tan': (0.82, 0.68, 0.52), 'peach': (0.96, 0.76, 0.61),
-              }
-              try:
-                  if col is None:
-                      return default
-                  if isinstance(col, str):
-                      s = col.strip().lower()
-                      if s in _NAMED:
-                          return _NAMED[s]
-                      h = s.lstrip('#')
-                      if len(h) == 3:
-                          h = ''.join(ch * 2 for ch in h)
-                      if len(h) >= 6:
-                          return (int(h[0:2], 16) / 255.0, int(h[2:4], 16) / 255.0, int(h[4:6], 16) / 255.0)
-                      return default
-                  if isinstance(col, (list, tuple)) and len(col) >= 3:
-                      vals = [float(col[0]), float(col[1]), float(col[2])]
-                      if max(vals) > 1.0:
-                          vals = [v / 255.0 for v in vals]
-                      return tuple(max(0.0, min(1.0, v)) for v in vals)
-              except Exception:
-                  pass
-              return default'''
-
-          SAFE_HEX = '''def _hex(c, default='#a0a0a0'):
-              _NAMED = {
-                  'red': '#c83c3c', 'blue': '#3c7ab4', 'green': '#4c9a5a', 'yellow': '#e0b43c',
-                  'gold': '#e6b830', 'silver': '#c4c8cc', 'white': '#f2f0eb', 'black': '#1e2024',
-                  'gray': '#80848a', 'grey': '#80848a', 'brown': '#7a5236', 'wood': '#9c6e44',
-                  'orange': '#e07a3c', 'purple': '#8a5aa8', 'pink': '#e08aa8', 'cyan': '#4cb4c8',
-              }
-              try:
-                  if not c:
-                      return default
-                  if isinstance(c, (list, tuple)) and len(c) >= 3:
-                      vals = [float(v) for v in c[:3]]
-                      if max(vals) > 1.0:
-                          vals = [v / 255.0 for v in vals]
-                      return '#%02x%02x%02x' % tuple(int(max(0.0, min(1.0, v)) * 255) for v in vals)
-                  if isinstance(c, str):
-                      s = c.strip().lower()
-                      if s in _NAMED:
-                          return _NAMED[s]
-                      h = s.lstrip('#')
-                      if len(h) == 3 and all(ch in '0123456789abcdef' for ch in h):
-                          return '#' + ''.join(ch * 2 for ch in h)
-                      if len(h) >= 6 and all(ch in '0123456789abcdef' for ch in h[:6]):
-                          return '#' + h[:6]
-              except Exception:
-                  pass
-              return default'''
-
-          replace_func_ast("kit/blox/chars.py", "_parse_rgb", SAFE_PARSE_RGB)
-          replace_func_ast("kit/blox/places.py", "_hex", SAFE_HEX)
-
-          # Verify the patched chars.py actually parses '#f5c29b' without crashing!
-          with open("kit/blox/chars.py", "r", encoding="utf-8") as f:
-              code_check = f.read()
-          ns = {}
-          exec(compile(SAFE_PARSE_RGB, "<check>", "exec"), ns)
-          assert ns["_parse_rgb"]("#f5c29b") == (245/255.0, 194/255.0, 155/255.0), "Self-check failed!"
-          print("[Self-Check] _parse_rgb('#f5c29b') verified OK")
-
-          # =========================================================================
-          # LAYER 2: Sanitize timed.json directly before Blender ever touches it
-          # =========================================================================
-          NAMED_RGB = {
-              'red': [0.85, 0.2, 0.2], 'blue': [0.2, 0.45, 0.85], 'green': [0.2, 0.7, 0.3],
-              'yellow': [0.95, 0.8, 0.2], 'gold': [0.95, 0.75, 0.15], 'white': [0.95, 0.95, 0.95],
-              'black': [0.1, 0.1, 0.12], 'gray': [0.5, 0.5, 0.52], 'grey': [0.5, 0.5, 0.52],
-              'brown': [0.45, 0.28, 0.16], 'orange': [0.95, 0.48, 0.15], 'purple': [0.55, 0.25, 0.75],
-              'pink': [0.95, 0.55, 0.7], 'tan': [0.82, 0.68, 0.52], 'peach': [0.96, 0.76, 0.61],
-          }
-
-          def to_rgb_list(col, fallback):
-              try:
-                  if col is None:
-                      return fallback
-                  if isinstance(col, str):
-                      s = col.strip().lower()
-                      if s in NAMED_RGB:
-                          return NAMED_RGB[s]
-                      h = s.lstrip('#')
-                      if len(h) == 3:
-                          h = ''.join(ch * 2 for ch in h)
-                      if len(h) >= 6:
-                          return [round(int(h[0:2], 16) / 255.0, 4), round(int(h[2:4], 16) / 255.0, 4), round(int(h[4:6], 16) / 255.0, 4)]
-                      return fallback
-                  if isinstance(col, (list, tuple)) and len(col) >= 3:
-                      vals = [float(col[0]), float(col[1]), float(col[2])]
-                      if max(vals) > 1.0:
-                          vals = [v / 255.0 for v in vals]
-                      return [round(max(0.0, min(1.0, v)), 4) for v in vals]
-              except Exception:
-                  pass
-              return fallback
-
-          def to_hex_str(col, fallback="#a0a0a0"):
-              rgb = to_rgb_list(col, None)
-              if rgb is None:
-                  return fallback
-              return "#%02x%02x%02x" % tuple(int(max(0.0, min(1.0, v)) * 255) for v in rgb)
-
-          VALID_HAIR = {'short', 'curly', 'spiky', 'cap', 'long', 'pigtails', 'bald', 'bun', 'grey_old'}
-          VALID_ANIMS = {
-              'idle', 'talk', 'walk', 'run', 'point', 'shrug', 'shock', 'scared', 'cheer', 'eat',
-              'cross_arms', 'think', 'sad', 'angry', 'wave', 'sit', 'facepalm',
-              'hold_hands', 'hold_hands_L', 'hold_hands_R',
-              'nod', 'headshake', 'flinch', 'slump', 'jump_joy', 'surrender', 'what', 'clap',
-          }
-          VALID_EXPRS = {
-              'neutral', 'smile', 'grin', 'laugh', 'shock', 'scared', 'sad', 'worried', 'angry',
-              'smug', 'think', 'blink', 'happy', 'joy', 'excited', 'fear', 'surprised', 'mad', 'upset', 'confused', 'nervous'
-          }
-
-          timed_path = os.path.join(os.environ["PROJ_DIR"], "timed.json")
-          data = json.load(open(timed_path, "r", encoding="utf-8"))
-
-          # Sanitize cast colors & hair
-          for nm, spec in (data.get("cast") or {}).items():
-              if not isinstance(spec, dict):
-                  continue
-              spec["skin"] = to_rgb_list(spec.get("skin"), [0.96, 0.76, 0.61])
-              spec["shirt"] = to_rgb_list(spec.get("shirt"), [0.12, 0.45, 0.95])
-              spec["pants"] = to_rgb_list(spec.get("pants"), [0.12, 0.16, 0.25])
-              spec["shoes"] = to_rgb_list(spec.get("shoes"), [0.12, 0.12, 0.14])
-              spec["hair_color"] = to_rgb_list(spec.get("hair_color"), [0.20, 0.13, 0.08])
-              for opt_k in ("cap_color", "tie_color", "apron_color", "inner_color", "skirt_color"):
-                  if opt_k in spec:
-                      spec[opt_k] = to_rgb_list(spec[opt_k], [0.5, 0.5, 0.5])
-              if spec.get("hair") not in VALID_HAIR:
-                  spec["hair"] = "short"
-
-          # Sanitize custom places & things hex colors
-          for pnm, pspec in (data.get("places") or {}).items():
-              if isinstance(pspec, dict):
-                  for ck in ("wall", "lower", "floor_color"):
-                      if ck in pspec and pspec[ck]:
-                          pspec[ck] = to_hex_str(pspec[ck], "#c9c2b2")
-
-          for tnm, parts in (data.get("things") or {}).items():
-              if isinstance(parts, list):
-                  for pt in parts:
-                      if isinstance(pt, list) and len(pt) >= 2:
-                          pt[1] = to_hex_str(pt[1], "#a0a0a0")
-
-          # Sanitize shots animations & expressions
-          for sh in data.get("shots") or []:
-              for cnm, act in (sh.get("do") or {}).items():
-                  if isinstance(act, dict):
-                      if act.get("anim") and act["anim"] not in VALID_ANIMS:
-                          act["anim"] = "idle"
-                      if act.get("expr") and act["expr"] not in VALID_EXPRS:
-                          act["expr"] = "neutral"
-
-          json.dump(data, open(timed_path, "w", encoding="utf-8"), indent=2)
-          print("[Sanitize] Normalized all cast RGBs, place hexes, things, and anims in timed.json")
-          EOF
-
-          # Compile 3D Scene (Attempt 1: with custom places & things)
-          $BLENDER -b --factory-startup -P kit/blox/compile.py -- "$PROJ_DIR" || true
-
-          # Attempt 2: fallback to built-in sets if custom places failed
-          if [ ! -s "$PROJ_DIR/scene.blend" ]; then
-            echo "[WARN] Custom places failed to compile; falling back to built-in sets..."
-            python - << 'EOF'
-          import json, os
-          p = os.path.join(os.environ["PROJ_DIR"], "timed.json")
-          d = json.load(open(p))
-          d.pop("places", None)
-          d.pop("things", None)
-          valid_sets = {"Street","Kitchen","Gym","MusicRow","TownPool","Bedroom","Hallway","Classroom","LivingRoom","Store","Office","Bathroom","Park","Backyard","Playground"}
-          for idx, sh in enumerate(d.get("shots", [])):
-              if sh.get("set") not in valid_sets:
-                  sh["set"] = ["Street","Park","Classroom","Store","Office","LivingRoom"][idx % 6]
-          json.dump(d, open(p, "w"), indent=2)
-          EOF
-            $BLENDER -b --factory-startup -P kit/blox/compile.py -- "$PROJ_DIR"
-          fi
+          $BLENDER -b --factory-startup -P kit/blox/compile.py -- "$PROJ_DIR"
           test -s "$PROJ_DIR/scene.blend"
 
-          cat << 'EOF' > /tmp/cpu_opt.py
+          cat << 'EOF' > /tmp/bright_render_opt.py
           import bpy
 
-          colored_count = 0
-          for mat in bpy.data.materials:
-              if mat.use_nodes and mat.node_tree:
-                  for node in mat.node_tree.nodes:
-                      if node.type == "BSDF_PRINCIPLED":
-                          base_in = node.inputs.get("Base Color")
-                          if base_in and not base_in.is_linked:
-                              col = list(base_in.default_value)
-                              mat.diffuse_color = (col[0], col[1], col[2], 1.0)
-                              colored_count += 1
-                              break
-
           s = bpy.context.scene
-          s.render.engine = "BLENDER_WORKBENCH"
-          s.render.resolution_percentage = 75
-          s.display.shading.light = "STUDIO"
-          s.display.shading.color_type = "MATERIAL"
-          s.display.shading.show_shadows = True
-          s.display.shading.shadow_intensity = 0.45
-          s.display.shading.show_cavity = True
-          s.display.shading.cavity_type = "BOTH"
+          # Use EEVEE (or EEVEE_NEXT in Blender 5.x) so sky brightness, sun lights, shadows & glow work!
+          engines = [e.identifier for e in s.render.bl_rna.properties['render_engine'].enum_items] if hasattr(s.render, 'bl_rna') else []
+          if 'BLENDER_EEVEE_NEXT' in engines:
+              s.render.engine = 'BLENDER_EEVEE_NEXT'
+          elif 'BLENDER_EEVEE' in engines:
+              s.render.engine = 'BLENDER_EEVEE'
+
+          if hasattr(s, 'eevee'):
+              s.eevee.taa_render_samples = 12
+              if hasattr(s.eevee, 'use_gtao'):
+                  s.eevee.use_gtao = True
+
+          # Vibrant AgX / Standard color management with bright exposure
+          s.view_settings.view_transform = 'Standard'
+          s.view_settings.look = 'Medium High Contrast'
+          s.view_settings.exposure = 0.35
+          s.view_settings.gamma = 1.0
+
+          # Ensure a bright key sun light exists if none is present
+          has_sun = any(o.type == 'LIGHT' and o.data.type == 'SUN' for o in bpy.data.objects)
+          if not has_sun:
+              ld = bpy.data.lights.new(name="StudioKeySun", type='SUN')
+              ld.energy = 3.2
+              ld.color = (1.0, 0.97, 0.92)
+              lo = bpy.data.objects.new(name="StudioKeySun", object_data=ld)
+              bpy.context.collection.objects.link(lo)
+              lo.rotation_euler = (0.78, 0.25, 0.65)
+
+          s.render.resolution_x = 1080
+          s.render.resolution_y = 1920
+          s.render.resolution_percentage = 85
           bpy.ops.wm.save_mainfile()
-          print(f"[Optimize] Baked vibrant colors onto {colored_count} materials (75% res fast Workbench)")
+          print(f"[Lighting] Configured {s.render.engine} @ 85% 1080x1920 with bright key lighting & exposure +0.35")
           EOF
-          $BLENDER -b "$PROJ_DIR/scene.blend" --python /tmp/cpu_opt.py
+          $BLENDER -b "$PROJ_DIR/scene.blend" --python /tmp/bright_render_opt.py
 
       - name: 8. Render All Frames Safely (Live Frame Counter + Auto-Recovery)
         run: |
@@ -366,14 +170,14 @@ jobs:
           frames_dir = os.path.join(ep, "frames")
           os.makedirs(frames_dir, exist_ok=True)
 
-          print(f"[Render] Rendering {total} frames ({dur:.2f}s @ 30fps) with 2 Workbench workers...", flush=True)
+          print(f"[Render] Rendering {total} frames ({dur:.2f}s @ 30fps) with 2 parallel workers...", flush=True)
 
           def run_pass(cmd, label):
               proc = subprocess.Popen(cmd)
               start_t = time.time()
               last_count = sum(1 for f in os.listdir(frames_dir) if f.endswith(".jpg"))
               last_progress_t = start_t
-              STALL_LIMIT_SEC = 240
+              STALL_LIMIT_SEC = 300
 
               while proc.poll() is None:
                   time.sleep(20)
@@ -435,7 +239,7 @@ jobs:
           src = src.replace("im.alpha_composite(mp, (mx, my))", "pass")
           with open(post_file, "w", encoding="utf-8") as f:
               f.write(src)
-          print("[Clean] Stripped top-right watermark, β. caption badge, and end card from post.py")
+          print("[Clean] Stripped top-right watermark, badge, and end card from post.py")
           EOF
           python kit/blox/post.py "$PROJ_DIR"
           OUT_MP4="$PROJ_DIR/out/${RUN_ID}.mp4"
