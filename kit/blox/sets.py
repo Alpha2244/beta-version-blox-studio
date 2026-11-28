@@ -3,8 +3,13 @@
 Self-contained: textures are the CC0 Poly Haven sets in kit/assets/textures, every prop is code-built in props.py,
 and the Beta Version brand is placed in-world as real signage (props.brand_plate / props.atlas_decal).
 
+Universal Defensive Set Synthesizer:
+  - Supports canonical sets (`Street`, `Kitchen`), `places_built.BUILT`, `places.PRESETS`, AND
+    any arbitrary location name (e.g., `Rooftop`, `Classroom`, `LivingRoom`, `Gym`, `Park`, `Cafe`,
+    `Supermarket`, `Hospital`, `Bedroom`, `Library`, `Forest`, `Office`) via `_build_semantic_set`.
+
 API
-    build_set(name, origin=(0,0,0)) -> bpy.types.Collection   name in Street / Kitchen
+    build_set(name, origin=(0,0,0), spec=None) -> bpy.types.Collection
     set_mood(mood, x=1.0)        mood in sunny / storm / night (x blends sunny -> mood, 0..1)
     setup_render(scene)          1080x1920, 30 fps, EEVEE, AgX, DOF/motion blur/raytracing/volumes/bloom
     ANCHORS                      {set: {anchor: (x,y,z) relative to origin}}
@@ -16,6 +21,7 @@ Clear zone |x|<7, -4<y<3 stays empty except floor (+ Kitchen.table, Street.sign)
 import math
 import os
 import random
+import re
 from pathlib import Path
 
 import bpy
@@ -83,7 +89,6 @@ def _world():
     sky.name = 'sky_col'
     L(grad.outputs['Result'], _sock(sky.inputs, 'Factor_Float'))
 
-    # clouds: noise projected on a sky plane, cover from ctl_cloud
     zz = N('ShaderNodeMath')
     zz.operation = 'ADD'
     zz.inputs[1].default_value = 0.12
@@ -135,7 +140,6 @@ def _world():
     bgc.name = 'bg_cam'
     L(_sock(cl.outputs, 'Result_Color'), bgc.inputs['Color'])
 
-    # warm studio lighting sky with ground bounce so shadows stay bright and clean
     lg = N('ShaderNodeMapRange')
     lg.inputs['From Min'].default_value = -0.25
     lg.inputs['From Max'].default_value = 0.25
@@ -281,7 +285,6 @@ def _noise(nt, scale, detail=4.0, rough=0.55, vec=None):
 
 
 def _wear(nt, col, rough, grime, floor=False, rough_amt=0.06):
-    """Subtle clean wear so studio rooms stay bright and crisp without dingy mud."""
     if grime <= 0:
         return col, rough
     patch = _maprange(nt, _noise(nt, 0.12, 4.0, 0.55), 0.48, 0.78)
@@ -318,7 +321,6 @@ def _wet(nt, col, rough, nstr_sock=None):
 
 def pbr(name, slug, tile, tint='#ffffff', sat=0.95, val=1.08, rough_mul=0.95, nstr=0.85, grime=0.15, floor=False,
         wet=False, paint=None, paint_keep=0.22, metal=0.0, spec=0.5, ramp=None, rot=None):
-    """Poly Haven PBR tuned for crisp, vibrant Roblox studio visuals."""
     m, new = _new_mat(name)
     if not new:
         return m
@@ -384,7 +386,6 @@ def pbr(name, slug, tile, tint='#ffffff', sat=0.95, val=1.08, rough_mul=0.95, ns
 
 def flat(name, hexcol, rough=0.62, metal=0.0, spec=0.5, emit=0.0, emit_col=None, alpha=1.0, coat=0.0, var=0.08,
          grime=0.0, ramp=None, drv=None):
-    """Vibrant flat colour with subtle micro-variation."""
     m, new = _new_mat(name)
     if not new:
         return m
@@ -1056,6 +1057,133 @@ def _kitchen(b, coll, O):
             'sink': (kx, 5.0, 3.4), 'cola': (tx + 0.95, ty - 0.45, 3.05)}
 
 
+# ------------------------------------------------------------------ Universal Semantic Set Synthesizer
+def _build_semantic_set(b, coll, O, name):
+    """Synthesize a complete, well-lit, prop-rich 3D set for ANY location name."""
+    W = _W(O)
+    tokens = set(re.findall(r'[a-z]+', str(name).lower()))
+
+    is_outdoor = bool(tokens & {
+        'park', 'forest', 'woods', 'garden', 'yard', 'playground', 'beach', 'field',
+        'alley', 'road', 'highway', 'bridge', 'plaza', 'square', 'farm', 'camp', 'pool',
+    })
+    is_rooftop = bool(tokens & {'rooftop', 'roof', 'balcony', 'terrace', 'cliff', 'tower'})
+    is_gym = bool(tokens & {'gym', 'arena', 'stadium', 'court', 'dojo', 'ring', 'stage'})
+    is_shop = bool(tokens & {'shop', 'store', 'market', 'supermarket', 'mall', 'cafe', 'restaurant', 'diner', 'bakery'})
+    is_school_office = bool(tokens & {'school', 'classroom', 'office', 'library', 'lab', 'laboratory', 'hospital', 'clinic', 'bank'})
+
+    # 1. Outdoor / Park / Beach / Yard
+    if is_outdoor:
+        is_beach = bool(tokens & {'beach', 'island', 'sand', 'coast'})
+        ground_mat = flat('sand', '#f2d99c', rough=0.82, var=0.14) if is_beach else P['grass']
+        b.boxr('ground', ground_mat, -120, 120, -120, 120, -1.2, 0.0, bev=False)
+        if is_beach:
+            b.boxr('water', flat('ocean', '#1e88e5', rough=0.12, spec=0.8), -120, 120, 18, 120, -0.8, 0.05, bev=False)
+        else:
+            b.boxr('walk', P['walk'], -120, 120, -6.5, 4.5, -0.4, 0.02, bev=False)
+            for tx, ty, s in [(-12, 8, 1.15), (13, 9, 1.25), (-22, 16, 1.3), (24, 14, 1.1), (-16, -12, 1.1), (18, -14, 1.2)]:
+                _tree(b, tx, ty, 0.0, s)
+            props.bench(coll, f'{name}.bench0', W(-10.5, 6.2, 0))
+            props.bench(coll, f'{name}.bench1', W(10.5, 6.2, 0))
+            props.lamp_post(coll, f'{name}.lamp0', W(-14.0, 5.5, 0.0), banner='P1', side=1)
+            props.lamp_post(coll, f'{name}.lamp1', W(14.0, 5.5, 0.0), banner='P2', side=-1)
+            _light(coll, name, 'lamp0', 'SPOT', O, (-14.0, 4.7, 12.4), (-14.0, 1.0, 0), 'lamp', 3400,
+                   color=(1.0, 0.78, 0.52), spot=110, blend=0.6, size=0.4, cutoff=45)
+            _light(coll, name, 'lamp1', 'SPOT', O, (14.0, 4.7, 12.4), (14.0, 1.0, 0), 'lamp', 3400,
+                   color=(1.0, 0.78, 0.52), spot=110, blend=0.6, size=0.4, cutoff=45)
+        props.trash_can(coll, f'{name}.trashcan', W(9.2, 5.2, 0))
+        props.brand_plate(coll, f'{name}.brand', W(0.0, 12.0, 3.2), (0, 0, 0), 3.0, plate=True)
+        _light(coll, name, 'fill', 'AREA', O, (11, -18, 7), (0, 0, 3.5), 'ext_fill', 1650, colch='fill_col', size=10, cutoff=60, volume=0.0)
+        _light(coll, name, 'rim', 'AREA', O, (6, 11, 11), (0, 0, 4.2), 'ext_rim', 2800, colch='rim_col', size=4, cutoff=45, volume=0.2)
+        _light(coll, name, 'key', 'AREA', O, (-9, -10, 9), (0, 0, 4), 'ext_key', 2100, colch='key_col', size=5, cutoff=45, volume=0.2)
+        _fog(coll, name, O, (-120, -60, -1), (120, 110, 70), 0.7)
+        return {'center': (0.0, 0.0, 0.0), 'bench': (-10.5, 6.2, 1.6), 'table': (10.5, 6.2, 1.6)}
+
+    # 2. Rooftop / Sky Balcony
+    if is_rooftop:
+        roof_mat = pbr('roofconc', 'concrete_wall_008', 6.0, tint='#c8ccd0', sat=0.3, val=1.15, floor=True)
+        b.boxr('roof', roof_mat, -18, 18, -22, 12, -1.0, 0.0, bev=False)
+        b.boxr('parapet', P['brick'], -18.5, 18.5, 11.2, 12.2, 0.0, 3.2, bev=ARCH)
+        b.boxr('parapet', P['brick'], -18.5, -17.5, -22, 12.2, 0.0, 3.2, bev=ARCH)
+        b.boxr('parapet', P['brick'], 17.5, 18.5, -22, 12.2, 0.0, 3.2, bev=ARCH)
+        b.boxr('trim', P['trim'], -18.7, 18.7, 11.0, 12.4, 3.2, 3.55, bev=ARCH)
+        _ac(b, -11.0, 10.5, 1.2, face=-1)
+        _ac(b, 11.0, 10.5, 1.2, face=-1)
+        sk = flat('tower_roof', '#8c96a0', rough=0.75, ramp=['#8a949c', '#9c9a94', '#7c8894', '#aaa498'], var=0.05)
+        for i, (tx, h) in enumerate([(-65, 45), (-40, 62), (-15, 38), (12, 56), (38, 44), (62, 58)]):
+            b.boxr('sky', sk, tx, tx + 16, 42 + (i % 2) * 14, 56 + (i % 2) * 14, -40, h, bev=False, rnd=(i * 0.23) % 1)
+        props.bench(coll, f'{name}.bench', W(9.5, 8.2, 0), rotz=180)
+        props.crate(coll, f'{name}.crate', W(-12.5, 6.5, 0), rotz=14, h=2.2)
+        props.brand_plate(coll, f'{name}.brand', W(0.0, 11.1, 1.8), (0, 0, 0), 2.8, plate=True)
+        _light(coll, name, 'fill', 'AREA', O, (11, -18, 7), (0, 0, 3.5), 'ext_fill', 1650, colch='fill_col', size=10, cutoff=60, volume=0.0)
+        _light(coll, name, 'rim', 'AREA', O, (6, 11, 11), (0, 0, 4.2), 'ext_rim', 2800, colch='rim_col', size=4, cutoff=45, volume=0.2)
+        _light(coll, name, 'key', 'AREA', O, (-9, -10, 9), (0, 0, 4), 'ext_key', 2100, colch='key_col', size=5, cutoff=45, volume=0.2)
+        return {'center': (0.0, 0.0, 0.0), 'edge': (0.0, 10.5, 0.0), 'bench': (9.5, 8.2, 1.6)}
+
+    # 3. Indoor Worlds (Home, Classroom, Office, Shop, Gym, Hospital, Library)
+    if is_gym:
+        floor = pbr('gymfloor', 'wood_table_001', 4.5, tint='#f4d5a6', sat=0.85, val=1.28, floor=True)
+        wall = pbr('gymwall', 'painted_plaster_wall', 6.0, paint='#dce6f2', paint_keep=0.18, grime=0.05)
+    elif is_shop:
+        floor = pbr('shopfloor', 'floor_tiles_06', 4.5, tint='#f7f4ee', sat=0.3, val=1.35, floor=True)
+        wall = pbr('shopwall', 'painted_plaster_wall', 6.0, paint='#f5e6cc', paint_keep=0.18, grime=0.05)
+    elif is_school_office:
+        floor = pbr('offfloor', 'square_concrete_pavers', 5.0, tint='#e4e8ec', sat=0.25, val=1.25, floor=True)
+        wall = pbr('offwall', 'painted_plaster_wall', 6.0, paint='#e6eef5', paint_keep=0.18, grime=0.05)
+    else:
+        floor = pbr('homefloor', 'wood_table_001', 4.0, tint='#d9b38c', sat=0.85, val=1.2, floor=True)
+        wall = pbr('homewall', 'painted_plaster_wall', 6.0, paint='#f2e8dc', paint_keep=0.18, grime=0.05)
+
+    _shell(b, wall, floor, P['trim'], P['plaster'])
+    card = _exterior_card()
+    _window(b, 0.0, 7.2, 8.4, 5.2, 7.85, card)
+    _window(b, -8.0, 7.2, 6.0, 5.2, 13.85, card, axis='X')
+    _door(b, -14.0, -18.0)
+
+    # Back-wall furniture (y >= 5.5, leaving acting zone |x|<7, -4<y<3 wide open)
+    b.boxr('back_counter', P['wood'], -11.5, -4.5, 5.6, 7.8, 0.0, 3.0)
+    b.boxr('back_counter', P['trim'], -11.6, -4.4, 5.5, 7.9, 3.0, 3.3)
+    b.boxr('back_counter2', P['wood'], 4.5, 11.5, 5.6, 7.8, 0.0, 3.0)
+    b.boxr('back_counter2', P['trim'], 4.4, 11.6, 5.5, 7.9, 3.0, 3.3)
+
+    if is_shop:
+        for sx_pos in (-9.5, -6.5, 6.5, 9.5):
+            props.cereal_box(coll, f'{name}.item_{int(sx_pos*10)}', W(sx_pos, 6.5, 3.3), rotz=8)
+            props.cola_bottle(coll, f'{name}.drink_{int(sx_pos*10)}', W(sx_pos + 1.1, 6.4, 3.3), h=0.9)
+    elif is_gym:
+        for gx in (-9.0, 9.0):
+            b.cyl('weights', P['dark'], 0.9, 0.25, (gx, 6.4, 3.5), axis='X', seg=18)
+            b.cyl('weights', P['metal'], 0.14, 3.2, (gx, 6.4, 3.5), axis='X', seg=12)
+    else:
+        props.mug(coll, f'{name}.mug', W(-7.5, 6.4, 3.3), rotz=-35)
+        props.framed_print(coll, f'{name}.print', W(-13.8, -4.5, 8.2), rotz=90, slot='P2', w=2.2)
+        props.wall_clock(coll, f'{name}.clock', W(10.5, 7.83, 10.2), d=2.6)
+
+    props.shelves(coll, f'{name}.shelvesL', W(-13.2, -9.5, 0), rotz=90, h=7.2)
+    props.shelves(coll, f'{name}.shelvesR', W(13.2, -9.5, 0), rotz=-90, h=7.2)
+    props.chair(coll, f'{name}.chair0', W(-9.5, 3.8, 0), rotz=25, h=3.4)
+    props.chair(coll, f'{name}.chair1', W(9.5, 3.8, 0), rotz=-25, h=3.4)
+
+    # Decorative rug & potted plant
+    b.boxr('rug', flat('rug_' + name, '#4f7cac' if is_school_office else '#c86d51', rough=0.9, var=0.14),
+           -4.5, 4.5, -2.5, 2.5, 0.0, 0.04, bev=False)
+    b.cyl('plant', flat('pot_' + name, '#c47b4a', rough=0.72), 0.8, 1.6, (-12.5, 3.5, 0.8), seg=14, r2=0.6)
+    b.ball('plant', P['leaf'], 1.25, (-12.5, 3.5, 2.4), sub=2)
+    props.brand_plate(coll, f'{name}.brand', W(0.0, 7.82, 11.2), (0, 0, 0), 2.8, plate=True)
+
+    _room_lights(coll, name, O,
+                 wins=[((0.0, 7.3, 7.2), (0.0, 0, 2.5), 7.8, 4.8), ((13.3, -8.0, 7.2), (0, -8, 2.5), 5.6, 4.8)],
+                 ceil_lights=[((0.0, 0.0, H_ROOM - 0.5), 'AREA', 750), ((-5.0, -8.0, H_ROOM - 0.5), 'AREA', 650)])
+    _fog(coll, name, O, (-14, -32, 0), (14, 8, H_ROOM), 0.45, col='#e4e0da')
+    return {
+        'center': (0.0, 0.0, 0.0),
+        'table': (-8.0, 6.6, 3.3),
+        'counter': (8.0, 6.6, 3.3),
+        'window': (0.0, 7.7, 7.2),
+        'door': (-13.5, -18.0, 0.0),
+    }
+
+
 ANCHORS = {}
 _BUILDERS = {'Street': _street, 'Kitchen': _kitchen}
 
@@ -1065,28 +1193,45 @@ def set_names():
     return list(_BUILDERS) + list(places_built.BUILT) + list(places.PRESETS)
 
 
+def _resolve_canonical_set(name):
+    import places, places_built
+    low = str(name or 'Street').strip().lower()
+    for pool in (_BUILDERS, places_built.BUILT, places.PRESETS):
+        for k in pool:
+            if k.lower() == low:
+                return k
+    if 'kitchen' in low:
+        return 'Kitchen'
+    if 'street' in low:
+        return 'Street'
+    return None
+
+
 def build_set(name, origin=(0, 0, 0), spec=None):
     import places, places_built
     base = spec.get('base') if spec else None
-    if base:
-        if base not in _BUILDERS and base not in places_built.BUILT and base not in places.PRESETS:
-            raise ValueError(f'place {name}: unknown base {base}; use {set_names()}')
-    elif spec is None and name not in _BUILDERS and name not in places_built.BUILT and name not in places.PRESETS:
-        raise ValueError(f'unknown set {name}; use {set_names()} or define it under "places" in shots.py')
+    resolved_base = _resolve_canonical_set(base) if base else None
+    resolved_name = _resolve_canonical_set(name) if not base else None
+
     _world()
     _mats()
     coll = bpy.data.collections.new(name)
     bpy.context.scene.collection.children.link(coll)
     b = _B(name, coll, origin)
-    src = base or name
+    src = resolved_base or resolved_name or name
+
     if spec is not None and not base:
         A = places.build(b, coll, origin, name, spec)
     elif src in _BUILDERS:
         A = _BUILDERS[src](b, coll, origin)
     elif src in places_built.BUILT:
         A = places_built.BUILT[src](b, coll, origin)
-    else:
+    elif src in places.PRESETS:
         A = places.build(b, coll, origin, name, places.PRESETS[src])
+    else:
+        # Universal Defensive Fallback: synthesize a rich, studio-lit 3D environment for ANY location!
+        A = _build_semantic_set(b, coll, origin, name)
+
     if base:
         A = dict(A)
         places._props(coll, name, origin, spec, A)
@@ -1142,8 +1287,16 @@ def _lerp(a, b, x):
 
 def set_mood(mood, x=1.0):
     global _LAST
-    _LAST = (mood, x)
-    A, M = MOODS['sunny'], MOODS[mood]
+    mood_key = str(mood or 'sunny').lower().strip()
+    if mood_key not in MOODS:
+        if any(k in mood_key for k in ('night', 'dark', 'evening', 'midnight')):
+            mood_key = 'night'
+        elif any(k in mood_key for k in ('storm', 'rain', 'gloomy', 'overcast', 'cloud')):
+            mood_key = 'storm'
+        else:
+            mood_key = 'sunny'
+    _LAST = (mood_key, x)
+    A, M = MOODS['sunny'], MOODS[mood_key]
     V = {k: _lerp(A[k], M[k], x) for k in A}
     nt = _world()
     n = nt.nodes
