@@ -3,6 +3,12 @@
 Every prop is one mesh object (several materials, bevelled), built in studs with its origin at the bottom centre,
 front facing -Y before `rotz`. Decals / labels / brand plates are child objects of their prop.
 
+Universal Prop Dispatcher:
+    spawn_prop(coll, kind, name, loc, rotz=0.0, **kwargs)
+      - Resolves any canonical prop (`lamp_post`, `car`, `fridge`, `mug`, `cola_bottle`, etc.) OR
+        synthesizes a multi-part bevelled Roblox prop for any arbitrary noun (`pizza`, `sword`, `laptop`,
+        `trophy`, `skateboard`, `ice_cream`, `gift_box`, `crown`, `dumbbell`, `camera`, `guitar`, etc.).
+
 Brand
     brand_plate(coll, name, loc, rot, width, plate=True, emissive=False)   wordmark quad (aspect kept) on a dark plate
     atlas_decal(coll, name, slot, loc, rot, width, emissive=False)          poster art from brand_posters_atlas.png
@@ -13,6 +19,7 @@ import base64
 import math
 import os
 import random
+import re
 import tempfile
 
 import bpy
@@ -380,6 +387,12 @@ def _m():
         cereal=f('cerealside', '#f5c93a', rough=0.6, var=0.05),
         towel=f('towelcloth', '#e9e6dd', rough=0.95),
         brick_red=f('brickred', '#8e4a3a', rough=0.8, var=0.2),
+        gold=f('gold', '#ffd700', rough=0.22, metal=0.95, var=0.04),
+        screen=f('screen', '#1e3a5f', rough=0.15, emit_col='#63b3ed', emit=1.6, var=0.02),
+        cheese=f('cheese', '#f6c844', rough=0.55, var=0.08),
+        crust=f('crust', '#d49a5a', rough=0.78, var=0.12),
+        pink=f('pink', '#f687b3', rough=0.45, var=0.06),
+        purple=f('purple', '#805ad5', rough=0.42, var=0.06),
     )
     return M
 
@@ -404,7 +417,7 @@ def lamp_post(coll, name, loc, rotz=0.0, banner=None, side=1):
     p.cyl(L, 0.2, 9.4, (0, 0, 6.5), seg=12, r2=0.16)
     for z in (4.0, 8.0, 11.2):
         p.cyl(L, 0.27, 0.16, (0, 0, z), seg=12)
-    p.box(L, (2.0, 0.14, 0.14), (0, 0, 10.4))              # ladder arm
+    p.box(L, (2.0, 0.14, 0.14), (0, 0, 10.4))
     for sx in (-0.9, 0.9):
         p.ball(L, 0.1, (sx, 0, 10.4), sub=1)
     p.cyl(L, 0.18, 0.4, (0, 0, 11.45), seg=4, r2=0.5, rot=(0, 0, math.pi / 4))
@@ -552,25 +565,23 @@ def car(coll, name, loc, rotz=0.0, length=13.5):
     p = Prop(coll, name, loc, rotz, bev=0.12)
     L = length / 2
     C, G = m['carpaint'], m['carglass']
-    p.boxr(C, -L, L, -3.0, 3.0, 0.95, 3.25)                     # body tub
-    p.boxr(C, -L + 0.9, 2.4, -2.75, 2.75, 3.25, 5.35)           # cabin
-    p.boxr(C, 2.0, L - 0.2, -2.9, 2.9, 3.2, 3.45)               # bonnet lip
-    # glass: windscreen / rear / side windows (split by pillars)
+    p.boxr(C, -L, L, -3.0, 3.0, 0.95, 3.25)
+    p.boxr(C, -L + 0.9, 2.4, -2.75, 2.75, 3.25, 5.35)
+    p.boxr(C, 2.0, L - 0.2, -2.9, 2.9, 3.2, 3.45)
     p.boxr(G, 2.38, 2.48, -2.45, 2.45, 3.6, 5.1)
     p.boxr(G, -L + 0.82, -L + 0.92, -2.4, 2.4, 3.7, 5.1)
     for sy in (-1, 1):
         y = sy * 2.77
         p.boxr(G, -L + 1.3, -1.75, y - 0.04, y + 0.04, 3.65, 5.05)
         p.boxr(G, -1.45, 2.05, y - 0.04, y + 0.04, 3.65, 5.05)
-        p.boxr(P['black'], -1.7 + 0.0, -1.5, y - 0.06, y + 0.06, 3.3, 5.2)   # B pillar seam
-        p.boxr(P['black'], -1.66, -1.62, sy * 3.0 - 0.03, sy * 3.0 + 0.03, 1.1, 3.2)  # door seams
+        p.boxr(P['black'], -1.7 + 0.0, -1.5, y - 0.06, y + 0.06, 3.3, 5.2)
+        p.boxr(P['black'], -1.66, -1.62, sy * 3.0 - 0.03, sy * 3.0 + 0.03, 1.1, 3.2)
         p.boxr(P['black'], 2.2, 2.24, sy * 3.0 - 0.03, sy * 3.0 + 0.03, 1.1, 3.2)
-        p.box(m['chrome'], (0.6, 0.12, 0.14), (1.4, sy * 3.05, 2.9))           # handle
-        p.box(C, (0.5, 0.5, 0.35), (2.0, sy * 3.05, 4.0))                     # mirror
+        p.box(m['chrome'], (0.6, 0.12, 0.14), (1.4, sy * 3.05, 2.9))
+        p.box(C, (0.5, 0.5, 0.35), (2.0, sy * 3.05, 4.0))
         for x in (-4.4, 4.4):
             _wheel(p, x, sy * 2.75, 1.25)
-            p.boxr(P['black'], x - 1.55, x + 1.55, sy * 3.0 - 0.05, sy * 3.0 + 0.05, 2.45, 2.7)  # arch trim
-    # bumpers, lights, grille, plates
+            p.boxr(P['black'], x - 1.55, x + 1.55, sy * 3.0 - 0.05, sy * 3.0 + 0.05, 2.45, 2.7)
     for sx in (-1, 1):
         p.boxr(P['dark'], sx * L - 0.25, sx * L + 0.25, -3.05, 3.05, 0.85, 1.65)
         p.boxr(P['white'], sx * (L + 0.24) - 0.03, sx * (L + 0.24) + 0.03, -0.7, 0.7, 1.0, 1.5)
@@ -580,8 +591,7 @@ def car(coll, name, loc, rotz=0.0, length=13.5):
     p.boxr(P['black'], L - 0.02, L + 0.05, -1.3, 1.3, 2.0, 2.85)
     for z in (2.2, 2.45, 2.7):
         p.boxr(m['chrome'], L + 0.03, L + 0.07, -1.25, 1.25, z - 0.04, z + 0.04)
-    p.boxr(P['dark'], -L + 1.0, 2.2, -2.5, 2.5, 5.35, 5.5)       # roof rails
-    # brand on both front doors
+    p.boxr(P['dark'], -L + 1.0, 2.2, -2.5, 2.5, 5.35, 5.5)
     p.brand(name + '.doorL', (0.3, -3.08, 2.15), (0, 0, 0), 2.6, plate=True)
     p.brand(name + '.doorR', (0.3, 3.08, 2.15), (0, 0, math.pi), 2.6, plate=True)
     return p.finish()
@@ -598,7 +608,7 @@ def billboard(coll, name, loc, rotz=0.0, width=12.0):
         p.box(D, (0.45, 0.45, z0 + h), (sx, 0.5, (z0 + h) / 2))
         p.box(D, (0.25, 2.2, 0.25), (sx, 0.3, z0 * 0.5), rot=(0.6, 0, 0))
     p.boxr(D, -width / 2 - 0.3, width / 2 + 0.3, -0.05, 0.35, z0 - 0.3, z0 + h + 0.3)
-    p.boxr(D, -width / 2, width / 2, -1.3, 0.0, z0 - 0.45, z0 - 0.3)                  # catwalk
+    p.boxr(D, -width / 2, width / 2, -1.3, 0.0, z0 - 0.45, z0 - 0.3)
     p.boxr(D, -width / 2, width / 2, -1.32, -1.22, z0 - 0.3, z0 + 0.6)
     for i in range(3):
         x = -width / 3 + i * width / 3
@@ -657,17 +667,16 @@ def stove(coll, name, loc, rotz=0.0, w=4.0, d=3.9, h=3.4):
         p.cyl(m['burner'], 0.55, 0.06, (bx, by, h + 0.03), seg=20)
         p.box(P['dark'], (1.2, 0.08, 0.08), (bx, by, h + 0.1))
         p.box(P['dark'], (0.08, 1.2, 0.08), (bx, by, h + 0.1))
-    p.boxr(E, -w / 2, w / 2, d / 2 - 0.35, d / 2, h, h + 1.0)                     # backguard
-    p.boxr(K, -w / 2 + 0.15, w / 2 - 0.15, fy - 0.08, fy, 0.55, 2.65)              # oven door
+    p.boxr(E, -w / 2, w / 2, d / 2 - 0.35, d / 2, h, h + 1.0)
+    p.boxr(K, -w / 2 + 0.15, w / 2 - 0.15, fy - 0.08, fy, 0.55, 2.65)
     p.boxr(m['carglass'], -1.1, 1.1, fy - 0.1, fy - 0.07, 0.9, 1.85)
     p.cyl(P['metal'], 0.08, w - 0.8, (0, fy - 0.32, 2.78), axis='X', seg=10)
     for sx in (-1.4, 1.4):
         p.box(P['metal'], (0.12, 0.3, 0.12), (sx, fy - 0.17, 2.78))
-    p.boxr(K, -w / 2, w / 2, fy - 0.05, fy, 2.92, h - 0.2)                        # knob panel
+    p.boxr(K, -w / 2, w / 2, fy - 0.05, fy, 2.92, h - 0.2)
     for i in range(5):
         p.cyl(P['metal'], 0.13, 0.15, (-1.5 + i * 0.75, fy - 0.12, 3.06), axis='Y', seg=12)
     p.brand(name + '.badge', (-0.55, fy - 0.1, 2.33), (0, 0, 0), 1.15, plate=False)
-    # tea towel over the handle (brand atlas TOWEL)
     tw = 1.0
     th = tw * 512 / 384
     p.decal(name + '.towel', 'TOWEL', tw, (0.95, fy - 0.42, 2.82 - th / 2))
@@ -774,7 +783,7 @@ def calendar(coll, name, loc, rotz=0.0, h=2.6):
     p = Prop(coll, name, loc, rotz, bev=0.0)
     w = h * 0.7
     p.boxr(P['white'], -w / 2, w / 2, -0.02, 0.02, 0, h)
-    p.boxr(P['white'], -w / 2 + 0.05, w / 2 - 0.05, -0.04, -0.02, h * 0.02, h * 0.52)   # page curl hint
+    p.boxr(P['white'], -w / 2 + 0.05, w / 2 - 0.05, -0.04, -0.02, h * 0.02, h * 0.52)
     p.boxr(P['red'], -w / 2, w / 2, -0.035, -0.02, h * 0.8, h * 0.97)
     p.boxr(P['white'], -w * 0.3, w * 0.3, -0.045, -0.03, h * 0.86, h * 0.91)
     gw, gh = (w - 0.3) / 7, (h * 0.5) / 5
@@ -876,3 +885,157 @@ def framed_print(coll, name, loc, rotz=0.0, slot='P2', w=2.0):
     p.boxr(P['wood'], -w / 2 - fw, w / 2 + fw, 0.0, 0.18, -h / 2 - fw, h / 2 + fw)
     p.decal(name + '.art', slot, w, (0, -0.01, 0))
     return p.finish()
+
+
+# ------------------------------------------------------------------ Universal Prop Synthesizer
+PROP_BUILDERS = {
+    'lamp_post': lamp_post,
+    'lamppost': lamp_post,
+    'hydrant': hydrant,
+    'fire_hydrant': hydrant,
+    'trash_can': trash_can,
+    'trashcan': trash_can,
+    'wheelie_bin': wheelie_bin,
+    'bin': wheelie_bin,
+    'bench': bench,
+    'cardboard_box': cardboard_box,
+    'box': cardboard_box,
+    'crate': crate,
+    'pallet': pallet,
+    'shrub': shrub,
+    'bush': shrub,
+    'car': car,
+    'vehicle': car,
+    'billboard': billboard,
+    'shop_sign': shop_sign,
+    'fridge': fridge,
+    'refrigerator': fridge,
+    'stove': stove,
+    'oven': stove,
+    'sink_unit': sink_unit,
+    'sink': sink_unit,
+    'cereal_box': cereal_box,
+    'cereal': cereal_box,
+    'cola_bottle': cola_bottle,
+    'bottle': cola_bottle,
+    'soda': cola_bottle,
+    'mug': mug,
+    'cup': mug,
+    'brass_pan': brass_pan,
+    'pan': brass_pan,
+    'wall_clock': wall_clock,
+    'clock': wall_clock,
+    'calendar': calendar,
+    'chair': chair,
+    'pendant_lamp': pendant_lamp,
+    'plate_set': plate_set,
+    'plate': plate_set,
+    'cutlery': cutlery,
+    'shelves': shelves,
+    'shelf': shelves,
+    'framed_print': framed_print,
+}
+
+
+def _synthesize_prop(coll, kind, name, loc, rotz=0.0, scale=1.0):
+    """Build a multi-part bevelled Roblox prop for ANY arbitrary object noun."""
+    m = _m(); P = S.P
+    p = Prop(coll, name, loc, rotz, bev=0.025)
+    tokens = set(re.findall(r'[a-z]+', str(kind).lower()))
+    s = float(scale)
+
+    if tokens & {'pizza', 'pie', 'burger', 'sandwich', 'cake', 'donut', 'cookie'}:
+        p.cyl(m['crust'], 0.68 * s, 0.12 * s, (0, 0, 0.06 * s), seg=24)
+        p.cyl(m['cheese'], 0.58 * s, 0.04 * s, (0, 0, 0.13 * s), seg=24)
+        for px, py in [(-0.22, -0.18), (0.24, -0.15), (0.0, 0.25), (-0.18, 0.2), (0.2, 0.2)]:
+            p.cyl(P['red'], 0.09 * s, 0.03 * s, (px * s, py * s, 0.16 * s), seg=12)
+    elif tokens & {'ice', 'cream', 'cone', 'icecream', 'lollipop', 'candy'}:
+        p.cyl(m['crust'], 0.04 * s, 0.55 * s, (0, 0, 0.275 * s), seg=14, r2=0.22 * s)
+        p.ball(m['pink'], 0.25 * s, (0, 0, 0.65 * s), sub=2)
+        p.ball(P['red'], 0.07 * s, (0, 0, 0.90 * s), sub=1)
+    elif tokens & {'laptop', 'computer', 'notebook', 'macbook'}:
+        p.box(P['metal'], (1.3 * s, 0.95 * s, 0.07 * s), (0, 0, 0.035 * s))
+        p.box(P['black'], (1.15 * s, 0.55 * s, 0.02 * s), (0, -0.12 * s, 0.075 * s))
+        p.box(P['metal'], (1.3 * s, 0.06 * s, 0.88 * s), (0, 0.45 * s, 0.48 * s), rot=(-0.18, 0, 0))
+        p.box(m['screen'], (1.18 * s, 0.03 * s, 0.76 * s), (0, 0.42 * s, 0.48 * s), rot=(-0.18, 0, 0))
+    elif tokens & {'phone', 'smartphone', 'tablet', 'ipad', 'remote', 'controller'}:
+        p.box(P['dark'], (0.34 * s, 0.05 * s, 0.64 * s), (0, 0, 0.32 * s))
+        p.box(m['screen'], (0.29 * s, 0.02 * s, 0.56 * s), (0, -0.025 * s, 0.32 * s))
+    elif tokens & {'tv', 'television', 'monitor', 'screen'}:
+        p.box(P['dark'], (1.2 * s, 0.7 * s, 0.1 * s), (0, 0, 0.05 * s))
+        p.cyl(P['dark'], 0.14 * s, 0.65 * s, (0, 0.1 * s, 0.35 * s), seg=12)
+        p.box(P['black'], (2.8 * s, 0.16 * s, 1.7 * s), (0, 0, 1.45 * s))
+        p.box(m['screen'], (2.6 * s, 0.04 * s, 1.52 * s), (0, -0.08 * s, 1.45 * s))
+    elif tokens & {'trophy', 'cup', 'award', 'medal', 'crown', 'gold'}:
+        p.box(P['dark'], (0.55 * s, 0.55 * s, 0.28 * s), (0, 0, 0.14 * s))
+        p.cyl(m['gold'], 0.12 * s, 0.35 * s, (0, 0, 0.45 * s), seg=16)
+        p.cyl(m['gold'], 0.16 * s, 0.48 * s, (0, 0, 0.85 * s), seg=20, r2=0.34 * s)
+        for sx in (-1, 1):
+            p.box(m['gold'], (0.14 * s, 0.06 * s, 0.32 * s), (sx * 0.34 * s, 0, 0.85 * s))
+    elif tokens & {'sword', 'blade', 'bat', 'hammer', 'axe', 'wand', 'staff', 'stick'}:
+        p.cyl(P['wood'], 0.07 * s, 0.45 * s, (0, 0, 0.225 * s), seg=12)
+        p.box(m['gold'], (0.48 * s, 0.14 * s, 0.10 * s), (0, 0, 0.48 * s))
+        p.box(P['metal'], (0.16 * s, 0.05 * s, 1.65 * s), (0, 0, 1.35 * s))
+    elif tokens & {'skateboard', 'skate', 'board', 'surfboard', 'snowboard'}:
+        p.box(m['purple'], (2.4 * s, 0.72 * s, 0.09 * s), (0, 0, 0.26 * s))
+        for wx in (-0.8 * s, 0.8 * s):
+            for wy in (-0.32 * s, 0.32 * s):
+                p.cyl(P['red'], 0.14 * s, 0.12 * s, (wx, wy, 0.14 * s), axis='Y', seg=16)
+    elif tokens & {'ball', 'football', 'basketball', 'soccer', 'volleyball', 'tennis'}:
+        col = P['red'] if 'basket' in tokens else (P['green'] if 'tennis' in tokens else P['white'])
+        p.ball(col, 0.42 * s, (0, 0, 0.42 * s), sub=2)
+    elif tokens & {'dumbbell', 'weight', 'barbell', 'kettlebell'}:
+        p.cyl(P['metal'], 0.07 * s, 1.2 * s, (0, 0, 0.28 * s), axis='X', seg=12)
+        for sx in (-0.45 * s, 0.45 * s):
+            p.cyl(P['dark'], 0.28 * s, 0.18 * s, (sx, 0, 0.28 * s), axis='X', seg=18)
+    elif tokens & {'gift', 'present', 'parcel', 'package', 'treasure', 'chest'}:
+        p.box(P['red'], (0.95 * s, 0.95 * s, 0.85 * s), (0, 0, 0.425 * s))
+        p.box(m['gold'], (0.99 * s, 0.18 * s, 0.88 * s), (0, 0, 0.43 * s))
+        p.box(m['gold'], (0.18 * s, 0.99 * s, 0.88 * s), (0, 0, 0.43 * s))
+        p.ball(m['gold'], 0.16 * s, (0, 0, 0.92 * s), sub=1)
+    elif tokens & {'bag', 'backpack', 'briefcase', 'suitcase', 'luggage', 'purse'}:
+        p.box(P['blue'], (0.85 * s, 0.48 * s, 1.15 * s), (0, 0, 0.575 * s))
+        p.box(P['dark'], (0.65 * s, 0.12 * s, 0.55 * s), (0, -0.26 * s, 0.42 * s))
+        p.box(P['dark'], (0.32 * s, 0.08 * s, 0.18 * s), (0, 0, 1.22 * s))
+    elif tokens & {'camera', 'flashlight', 'lantern', 'torch'}:
+        p.box(P['black'], (0.68 * s, 0.36 * s, 0.44 * s), (0, 0, 0.22 * s))
+        p.cyl(m['chrome'], 0.18 * s, 0.28 * s, (0, -0.26 * s, 0.22 * s), axis='Y', seg=18)
+        p.cyl(m['cyanled'], 0.14 * s, 0.04 * s, (0, -0.41 * s, 0.22 * s), axis='Y', seg=18)
+    elif tokens & {'guitar', 'violin', 'banjo', 'ukulele'}:
+        p.cyl(P['wood'], 0.42 * s, 0.22 * s, (0, 0, 0.42 * s), axis='Y', seg=20)
+        p.cyl(P['wood'], 0.30 * s, 0.22 * s, (0, 0, 0.82 * s), axis='Y', seg=20)
+        p.box(P['dark'], (0.14 * s, 0.12 * s, 1.15 * s), (0, 0, 1.55 * s))
+    elif tokens & {'table', 'desk', 'counter'}:
+        p.boxr(P['wood'], -1.4 * s, 1.4 * s, -0.9 * s, 0.9 * s, 2.2 * s, 2.45 * s)
+        for lx in (-1.15 * s, 1.15 * s):
+            for ly in (-0.65 * s, 0.65 * s):
+                p.box(P['wood'], (0.22 * s, 0.22 * s, 2.2 * s), (lx, ly, 1.1 * s))
+    elif tokens & {'sofa', 'couch', 'bed', 'mattress'}:
+        p.boxr(P['blue'], -2.4 * s, 2.4 * s, -1.1 * s, 1.1 * s, 0.35 * s, 1.35 * s)
+        p.boxr(P['blue'], -2.4 * s, 2.4 * s, 0.65 * s, 1.1 * s, 1.35 * s, 2.55 * s)
+        for sx in (-2.2 * s, 2.2 * s):
+            p.boxr(P['blue'], sx - 0.22 * s, sx + 0.22 * s, -1.1 * s, 1.1 * s, 1.35 * s, 1.95 * s)
+    else:
+        # Generic beveled Beta Version artifact / parcel so any unknown prop renders cleanly
+        p.box(P['blue'], (0.75 * s, 0.75 * s, 0.65 * s), (0, 0, 0.325 * s))
+        p.box(P['trim'], (0.80 * s, 0.80 * s, 0.10 * s), (0, 0, 0.68 * s))
+        p.brand(name + '.brand', (0, -0.39 * s, 0.34 * s), (0, 0, 0), 0.52 * s, plate=True)
+
+    return p.finish()
+
+
+def spawn_prop(coll, kind, name, loc, rotz=0.0, **kwargs):
+    """Universal prop factory: dispatches to built-in prop functions or synthesizes a multi-part Roblox prop."""
+    key = re.sub(r'[^a-z0-9]+', '_', str(kind or 'box').lower()).strip('_')
+    fn = PROP_BUILDERS.get(key)
+    if fn is None:
+        for k, builder in PROP_BUILDERS.items():
+            if k in key or key in k:
+                fn = builder
+                break
+    if fn is not None:
+        import inspect
+        sig = inspect.signature(fn)
+        valid_kwargs = {k: v for k, v in kwargs.items() if k in sig.parameters}
+        return fn(coll, name, loc, rotz=rotz, **valid_kwargs)
+    return _synthesize_prop(coll, kind, name, loc, rotz=rotz, scale=kwargs.get('scale', 1.0))
