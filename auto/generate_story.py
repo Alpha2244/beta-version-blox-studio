@@ -32,22 +32,22 @@ RICH_SETS = [
 ]
 
 DEFAULT_CAST_UNIVERSE = {
-    "Leo": {"height": 1.0, "gender": "male", "role": "main_character", "skin": "#f5c29b", "hair": "spiky", "hair_color": "#261b14", "shirt": "#1e73f2", "pants": "#1b2234", "extras": []},
-    "Maya": {"height": 0.93, "gender": "female", "role": "sister_or_best_friend", "skin": "#f7c7a3", "hair": "pigtails", "hair_color": "#3b2316", "shirt": "#ff4f8b", "pants": "#2a2d43", "extras": ["skirt"]},
-    "Jake": {"height": 1.03, "gender": "male", "role": "rival_or_friend", "skin": "#e8b087", "hair": "short", "hair_color": "#1e1612", "shirt": "#e67e22", "pants": "#1d2432", "extras": []},
-    "Max": {"height": 1.05, "gender": "male", "role": "brother", "skin": "#e8b087", "hair": "curly", "hair_color": "#1e1612", "shirt": "#22b855", "pants": "#1d2432", "extras": ["cap"]},
-    "Mom": {"height": 1.02, "gender": "female", "role": "mother", "skin": "#f5c29b", "hair": "bun", "hair_color": "#4a2c18", "shirt": "#9b51e0", "pants": "#25293a", "extras": ["cardigan"]},
-    "Dad": {"height": 1.08, "gender": "male", "role": "father", "skin": "#eab38a", "hair": "short", "hair_color": "#2d221c", "shirt": "#2f80ed", "pants": "#1f2533", "extras": ["tie"]},
-    "Uncle_Sam": {"height": 1.06, "gender": "male", "role": "uncle", "skin": "#e2a77d", "hair": "short", "hair_color": "#5c5856", "shirt": "#f2994a", "pants": "#2c3342", "extras": ["glasses"]},
-    "Ms_Clara": {"height": 1.02, "gender": "female", "role": "teacher", "skin": "#f6c9a6", "hair": "long", "hair_color": "#3d2516", "shirt": "#27ae60", "pants": "#1e2430", "extras": ["glasses", "cardigan"]},
-    "Zoe": {"height": 0.96, "gender": "female", "role": "best_friend_female", "skin": "#c68658", "hair": "long", "hair_color": "#191412", "shirt": "#f2c94c", "pants": "#232938", "extras": ["skirt"]},
-    "Sam": {"height": 1.0, "gender": "male", "role": "best_friend_male", "skin": "#8d5524", "hair": "curly", "hair_color": "#141110", "shirt": "#eb5757", "pants": "#1c2230", "extras": []},
+    "Leo": {"height": 1.0, "gender": "male", "role": "main_character", "skin": "#f5c29b", "hair": "spiky", "hair_color": "#261b14", "shirt": "#1e73f2", "pants": "#1b2234", "shoes": "#f2f4f8", "extras": []},
+    "Maya": {"height": 0.93, "gender": "female", "role": "sister_or_best_friend", "skin": "#f7c7a3", "hair": "pigtails", "hair_color": "#3b2316", "shirt": "#ff4f8b", "pants": "#2a2d43", "shoes": "#ffffff", "extras": ["skirt"]},
+    "Jake": {"height": 1.03, "gender": "male", "role": "rival_or_friend", "skin": "#e8b087", "hair": "short", "hair_color": "#1e1612", "shirt": "#e67e22", "pants": "#1d2432", "shoes": "#22262e", "extras": []},
+    "Max": {"height": 1.05, "gender": "male", "role": "brother", "skin": "#e8b087", "hair": "curly", "hair_color": "#1e1612", "shirt": "#22b855", "pants": "#1d2432", "shoes": "#f2f4f8", "extras": ["cap"]},
+    "Mom": {"height": 1.02, "gender": "female", "role": "mother", "skin": "#f5c29b", "hair": "bun", "hair_color": "#4a2c18", "shirt": "#9b51e0", "pants": "#25293a", "shoes": "#d8c3a5", "extras": ["cardigan"]},
+    "Dad": {"height": 1.08, "gender": "male", "role": "father", "skin": "#eab38a", "hair": "short", "hair_color": "#2d221c", "shirt": "#2f80ed", "pants": "#1f2533", "shoes": "#3a2c22", "extras": ["tie"]},
+    "Uncle_Sam": {"height": 1.06, "gender": "male", "role": "uncle", "skin": "#e2a77d", "hair": "short", "hair_color": "#5c5856", "shirt": "#f2994a", "pants": "#2c3342", "shoes": "#4a3728", "extras": ["glasses"]},
+    "Ms_Clara": {"height": 1.02, "gender": "female", "role": "teacher", "skin": "#f6c9a6", "hair": "long", "hair_color": "#3d2516", "shirt": "#27ae60", "pants": "#1e2430", "shoes": "#2b2d42", "extras": ["glasses", "cardigan"]},
+    "Zoe": {"height": 0.96, "gender": "female", "role": "best_friend_female", "skin": "#c68658", "hair": "long", "hair_color": "#191412", "shirt": "#f2c94c", "pants": "#232938", "shoes": "#ffffff", "extras": ["skirt"]},
+    "Sam": {"height": 1.0, "gender": "male", "role": "best_friend_male", "skin": "#8d5524", "hair": "curly", "hair_color": "#141110", "shirt": "#eb5757", "pants": "#1c2230", "shoes": "#eeeeee", "extras": []},
 }
 
 BACKGROUND_CROWD_NPCS = {
-    "Townie_1": {"height": 1.0, "skin": "#f2be96", "hair": "short", "hair_color": "#2b1d14", "shirt": "#00a8ff", "pants": "#2f3640"},
-    "Townie_2": {"height": 0.96, "skin": "#d99b6c", "hair": "long", "hair_color": "#3d2314", "shirt": "#fbc531", "pants": "#192a56", "extras": ["skirt"]},
-    "Townie_3": {"height": 1.03, "skin": "#f5c7a3", "hair": "curly", "hair_color": "#1e272e", "shirt": "#4cd137", "pants": "#2f3640"},
+    "Townie_1": {"height": 1.0, "gender": "male", "skin": "#f2be96", "hair": "short", "hair_color": "#2b1d14", "shirt": "#00a8ff", "pants": "#2f3640", "shoes": "#ffffff"},
+    "Townie_2": {"height": 0.96, "gender": "female", "skin": "#d99b6c", "hair": "long", "hair_color": "#3d2314", "shirt": "#fbc531", "pants": "#192a56", "shoes": "#ffffff", "extras": ["skirt"]},
+    "Townie_3": {"height": 1.03, "gender": "male", "skin": "#f5c7a3", "hair": "curly", "hair_color": "#1e272e", "shirt": "#4cd137", "pants": "#2f3640", "shoes": "#dddddd"},
 }
 
 VALID_CAMS = {"ecu", "cu", "mcu", "ms", "mls", "ws", "low", "high", "ots", "two", "ews", "ground", "pov", "ins"}
@@ -71,6 +71,24 @@ FACE_ALIASES = {
     "blushing": "blush", "shy": "blush", "flustered": "blush",
     "confused": "think", "nervous": "worried",
 }
+
+
+def hex_to_rgb01(val, fallback=(0.5, 0.5, 0.5)) -> list[float]:
+    """Convert '#rrggbb' or 3-tuple/list into linear-ready 0..1 RGB floats for Blender."""
+    if isinstance(val, (list, tuple)) and len(val) >= 3:
+        return [round(float(val[0]), 4), round(float(val[1]), 4), round(float(val[2]), 4)]
+    s = str(val or "").strip().lstrip("#")
+    if len(s) == 3:
+        s = "".join(c * 2 for c in s)
+    if len(s) >= 6:
+        try:
+            r = int(s[0:2], 16) / 255.0
+            g = int(s[2:4], 16) / 255.0
+            b = int(s[4:6], 16) / 255.0
+            return [round(r, 4), round(g, 4), round(b, 4)]
+        except ValueError:
+            pass
+    return list(fallback)
 
 
 def sanitize_face(val) -> str:
@@ -161,14 +179,17 @@ def call_gemini_json_defensive(api_key: str, prompt: str, stage_label: str = "St
 
 
 def apply_wardrobe_and_gender_locks(cast: dict, story_bible: dict) -> dict:
-    """Enforces distinct male/female silhouettes and locks school/themed uniforms across all students."""
+    """Enforces distinct male/female hair & silhouettes, school uniform locks, and RGB 0..1 tuples."""
     uniform_rule = story_bible.get("wardrobe_lock") or {}
     is_school_uniform = bool(uniform_rule.get("is_school_uniform", False))
     u_shirt = uniform_rule.get("shirt_hex", "#f2f4f8")
     u_pants = uniform_rule.get("pants_hex", "#1e2a44")
     u_tie = uniform_rule.get("tie_hex", "#b8293d")
 
-    student_roles = {"main_character", "sister", "brother", "sister_or_best_friend", "rival_or_friend", "best_friend_female", "best_friend_male", "student"}
+    student_roles = {
+        "main_character", "sister", "brother", "sister_or_best_friend",
+        "rival_or_friend", "best_friend_female", "best_friend_male", "student",
+    }
 
     for name, spec in cast.items():
         if not isinstance(spec, dict):
@@ -176,14 +197,16 @@ def apply_wardrobe_and_gender_locks(cast: dict, story_bible: dict) -> dict:
         gender = str(spec.get("gender", "")).lower()
         extras = list(spec.get("extras") or [])
 
-        # Clear visual gender differentiation
+        # Clear visual gender differentiation (hair + height + outfit silhouette)
         if gender == "female" or name in ("Maya", "Zoe", "Mom", "Ms_Clara", "Townie_2"):
+            spec["gender"] = "female"
             spec["height"] = min(float(spec.get("height", 0.94)), 0.96) if name not in ("Mom", "Ms_Clara") else 1.01
             if spec.get("hair") in (None, "short", "spiky"):
                 spec["hair"] = "pigtails" if name == "Maya" else "long"
             if "skirt" not in extras and name not in ("Mom", "Ms_Clara"):
                 extras.append("skirt")
         else:
+            spec["gender"] = "male"
             spec["height"] = max(float(spec.get("height", 1.02)), 1.0)
             if spec.get("hair") in (None, "pigtails", "bun"):
                 spec["hair"] = "spiky" if name == "Leo" else "short"
@@ -197,15 +220,25 @@ def apply_wardrobe_and_gender_locks(cast: dict, story_bible: dict) -> dict:
             if "tie" not in extras:
                 extras.append("tie")
 
+        # Normalize colors to 0..1 RGB lists so compile.py & chars.py render exact shades
+        spec["skin"] = hex_to_rgb01(spec.get("skin"), (0.96, 0.76, 0.61))
+        spec["shirt"] = hex_to_rgb01(spec.get("shirt"), (0.12, 0.45, 0.95))
+        spec["pants"] = hex_to_rgb01(spec.get("pants"), (0.11, 0.14, 0.21))
+        spec["shoes"] = hex_to_rgb01(spec.get("shoes"), (0.93, 0.94, 0.96))
+        spec["hair_color"] = hex_to_rgb01(spec.get("hair_color"), (0.16, 0.11, 0.08))
+        if "tie_color" in spec:
+            spec["tie_color"] = hex_to_rgb01(spec.get("tie_color"), (0.72, 0.16, 0.24))
+
+        spec["hair_style"] = spec.get("hair", "short")
         spec["extras"] = list(dict.fromkeys(extras))
     return cast
 
 
 def enforce_speaker_focus_and_continuity(shots: list[dict], cast: dict) -> list[dict]:
     """
-    1. Isolates the active speaker (`subject`) in close/medium shots so the camera rotates/cuts to the speaker.
-    2. Pushes non-speakers to the periphery or off-camera during dialogue so it's 100% clear who is talking.
-    3. Chains character positions & walking speed continuously from shot N to shot N+1.
+    1. Isolates the active speaker (`subject`) in close/medium shots so the camera cuts/rotates cleanly to the speaker.
+    2. Alternates camera side (-1 / +1) on cuts for smooth 3D spatial camera flow.
+    3. Chains character positions & `walkTo` trajectories continuously from shot N to shot N+1.
     """
     last_known_pos: dict[str, list[float]] = {}
     last_known_yaw: dict[str, float] = {}
@@ -220,43 +253,39 @@ def enforce_speaker_focus_and_continuity(shots: list[dict], cast: dict) -> list[
 
         speaker = sh.get("subject", "Leo")
         cam = sh.get("cam", "mcu")
-        dur = max(0.8, float(sh.get("t1", 1.35)) - float(sh.get("t0", 0.0)))
+        dur = max(1.0, float(sh.get("t1", 1.35)) - float(sh.get("t0", 0.0)))
         actors = sh.get("actors") or []
 
-        # Ensure speaker is always present in the shot
+        # Alternate camera angle side so cuts flow dynamically around the speaker
+        sh["side"] = 1 if idx % 2 == 0 else -1
+
         if not any(a.get("who") == speaker for a in actors):
             actors.insert(0, {"who": speaker, "at": [0.0, 0.0], "yaw": 0.0, "anim": "talk", "face": "neutral", "talk": [0.0, round(dur, 2)]})
 
-        # Separate speaker from listeners
         speaker_actor = next(a for a in actors if a.get("who") == speaker)
         other_actors = [a for a in actors if a.get("who") != speaker]
 
-        # Camera cut rule: when one character speaks, frame ONLY the speaker in mcu/cu/ots,
-        # OR if cam is 'two'/'ws', place listener on the far edge (x >= 3.8) facing speaker
         if cam in ("cu", "ecu", "mcu", "low", "high"):
-            # Solo speaker framing: remove bystanders from frame so viewer sees ONLY who is speaking
             kept_actors = [speaker_actor]
             speaker_actor["at"] = last_known_pos.get(speaker, [0.0, 0.0])
-            # Slight dynamic angle toward camera so facial expressions/tears/blush are clearly visible
-            speaker_actor["yaw"] = 12.0 if idx % 2 == 0 else -12.0
+            speaker_actor["yaw"] = 14.0 if idx % 2 == 0 else -14.0
             speaker_actor["talk"] = [0.0, round(dur, 2)]
         else:
             kept_actors = [speaker_actor] + other_actors[:2]
-            # Speaker owns left-center foreground; listener stands off to the side
             sp_x = -1.6 if idx % 2 == 0 else 1.6
             speaker_actor["at"] = [sp_x, 0.0]
-            speaker_actor["yaw"] = 22.0 if sp_x < 0 else -22.0
+            speaker_actor["yaw"] = 24.0 if sp_x < 0 else -24.0
             speaker_actor["talk"] = [0.0, round(dur, 2)]
 
             for o_idx, oa in enumerate(other_actors[:2]):
                 side_sign = 1.0 if sp_x < 0 else -1.0
-                ox = round(side_sign * (3.6 + o_idx * 1.4), 2)
-                oy = round(0.8 + o_idx * 1.6, 2)
+                ox = round(side_sign * (3.4 + o_idx * 1.4), 2)
+                oy = round(0.7 + o_idx * 1.5, 2)
                 oa["at"] = [ox, oy]
                 oa["yaw"] = round(-side_sign * 48.0, 1)
                 oa.pop("talk", None)
 
-        # Chain walk / run movement speed accurately across shots
+        # Chain walk / run movement speed accurately across shots using `walkTo` (read by compile.py)
         for act in kept_actors:
             who = act.get("who", speaker)
             anim = act.get("anim", "idle")
@@ -270,9 +299,10 @@ def enforce_speaker_focus_and_continuity(shots: list[dict], cast: dict) -> list[
                     round(max(-6.0, min(6.0, start_pt[0] + math.sin(rad) * dist)), 2),
                     round(max(-3.0, min(5.0, start_pt[1] - math.cos(rad) * dist)), 2),
                 ]
-                act["move_to"] = end_pt
+                act["walkTo"] = end_pt
                 last_known_pos[who] = end_pt
             else:
+                act.pop("walkTo", None)
                 last_known_pos[who] = list(act.get("at", [0.0, 0.0]))
             last_known_yaw[who] = float(act.get("yaw", 0.0))
 
@@ -297,8 +327,8 @@ AVAILABLE CANONICAL CHARACTERS (keep their names, genders, hair & personalities 
 {json.dumps(cast_universe, indent=2)}
 
 TASK — STAGE 1 (SCRIPT & CONTINUITY BIBLE):
-1. Write a tight 24-to-28-beat spoken script (each beat = 1.35s, max 8 words per beat) with a viral 3-second hook, rising tension, emotional climax (crying/blushing/shock), and twist ending.
-2. Extract EVERY prop, room, closet, door, pencil, letter, or object mentioned ANYWHERE in the script so it can be placed in the 3D set from Shot 1! (Example: if someone hides in or opens a closet in Beat 10, the Bedroom/Hallway MUST have that closet built and visible in Beat 1!).
+1. Write a tight 24-to-28-beat spoken script (max 8 words per beat) with a viral 3-second hook, rising tension, emotional climax (crying/blushing/shock), and twist ending.
+2. Extract EVERY prop, room, closet, door, pencil, letter, or object mentioned ANYWHERE in the script so it can be placed in the 3D set from Shot 1!
 3. Decide wardrobe locks: if ANY beat happens at school/classroom, set `"is_school_uniform": true` with exact `shirt_hex`, `pants_hex`, `tie_hex` so EVERY student wears the exact same school uniform in every shot.
 4. Interlink the first beat and final beat visually and narratively so the ending loops or resolves cleanly.
 
@@ -343,14 +373,13 @@ STORY BIBLE:
 {json.dumps(bible, indent=2)}
 
 RULES FOR 3D MODELING IN `things` AND `places`:
-1. Every item in `required_custom_props` (closets, pencils, letters, chests, phones, trophies, etc.) MUST be built in `things` using blocky Roblox primitives:
-   - `["block", "#hex", [width_x, depth_y, height_z], [x, y, z], {{"metal": false, "glow": 0.0}}]`
-   - `["tube", "#hex", radius, height, [x, y, z]]`
-   - `["cone", "#hex", radius, height, [x, y, z]]`
-   - `["ball", "#hex", radius, [x, y, z]]`
-2. Every set in `required_sets` MUST be defined in `places` with rich furniture density (at least 6–10 props per room: bed, wardrobe/closet, desk, chair, rug, window, lamp, posters, shelves, plants, door) so the background is detailed and alive!
-3. Standard built-in props you can place in `props`: `"bed"`, `"wardrobe"`, `"desk"`, `"office_chair"`, `"rug"`, `"lamp"`, `"floor_lamp"`, `"picture"`, `"poster"`, `"plant"`, `"shelves"`, `"sofa"`, `"table"`, `"tv"`, `"door"`, `"school_desk"`, `"lockers"`, `"whiteboard"`, `"trash_can"`, `"car"`, `"tree"`, `"lamp_post"`.
-4. Keep the center stage (`x` between `-2.5` and `+2.5`, `y` between `-1.5` and `+2.2`) clear for characters to walk and act; place furniture along walls (`y >= 3.2` or `|x| >= 3.5`).
+1. Every item in `required_custom_props` MUST be built in `things` using blocky Roblox primitives:
+  - `["block", "#hex", [width_x, depth_y, height_z], [x, y, z], {{"metal": false, "glow": 0.0}}]`
+  - `["tube", "#hex", radius, height, [x, y, z]]`
+  - `["cone", "#hex", radius, height, [x, y, z]]`
+  - `["ball", "#hex", radius, [x, y, z]]`
+2. Every set in `required_sets` MUST be defined in `places` with rich furniture density (at least 6–10 props per room).
+3. Keep the center stage (`x` between `-2.5` and `+2.5`, `y` between `-1.5` and `+2.2`) clear for characters to walk and act.
 
 Return ONLY valid JSON:
 {{
@@ -398,9 +427,9 @@ STORY BIBLE:
 {json.dumps(list((assets.get("things") or {}).keys()))}
 
 STRICT CINEMATOGRAPHY & EMOTION RULES:
-1. **SPEAKER CAMERA LOCK**: Whoever is speaking (`subject`) in that beat MUST be the focus of the camera! Use `"mcu"`, `"cu"`, or `"ots"` when one person is speaking so the camera rotates/cuts directly to the speaker's face. Never show a crowd blocking the speaker.
-2. **DYNAMIC CAMERA VARIETY**: Alternate camera angles every shot (`mcu` -> `cu` -> `ins` -> `two` -> `low` -> `ots` -> `ws`) and moves (`crash_in`, `push`, `reveal_push`, `creep`, `drift`). Use `"cam": "ins", "focus": "<CustomPropName>"` whenever a key prop (like a closet door, pencil, note, or crown) is revealed!
-3. **FULL EMOTIONAL RANGE**: Use `"cry"` whenever a character is crying/tearing up, `"blush"` whenever a character is blushing/shy/flustered, `"shock"`, `"angry"`, `"scared"`, `"worried"`, `"laugh"`, `"smug"`, `"sad"`, `"smile"`.
+1. **SPEAKER CAMERA LOCK**: Whoever is speaking (`subject`) in that beat MUST be the focus of the camera! Use `"mcu"`, `"cu"`, or `"ots"` when one person is speaking.
+2. **DYNAMIC CAMERA VARIETY**: Alternate camera angles every shot (`mcu` -> `cu` -> `ins` -> `two` -> `low` -> `ots` -> `ws`) and moves (`crash_in`, `push`, `reveal_push`, `creep`, `drift`). Use `"cam": "ins", "focus": "<CustomPropName>"` whenever a key prop is revealed!
+3. **FULL EMOTIONAL RANGE**: Use `"cry"`, `"blush"`, `"shock"`, `"angry"`, `"scared"`, `"worried"`, `"laugh"`, `"smug"`, `"sad"`, `"smile"`.
 4. **ALLOWED ANIMS**: {json.dumps(sorted(VALID_ANIMS))}.
 5. **ALLOWED FACES**: {json.dumps(sorted(VALID_FACES))}.
 
@@ -425,7 +454,6 @@ Return ONLY valid JSON:
 
     choreography = call_gemini_json_defensive(api_key, stage3_prompt, stage_label="Stage3-Choreography")
 
-    # Assemble complete story payload
     cast_out = {}
     active_names = set(bible.get("active_cast") or []) | {"Leo", "Maya", "Jake"}
     for cname in active_names:
@@ -442,12 +470,13 @@ Return ONLY valid JSON:
                 "hair_color": "#2b1d14",
                 "shirt": "#e84393" if is_fem else "#0984e3",
                 "pants": "#2d3436",
+                "shoes": "#ffffff",
                 "extras": ["skirt"] if is_fem else [],
             }
 
-    cast_out = apply_wardrobe_and_gender_locks(cast_out, bible)
     for tname, tdata in BACKGROUND_CROWD_NPCS.items():
         cast_out[tname] = dict(tdata)
+    cast_out = apply_wardrobe_and_gender_locks(cast_out, bible)
 
     return {
         "title": bible.get("title", "The Secret Inside Maya's Closet!"),
@@ -480,8 +509,9 @@ def build_offline_fast_story(cast_universe: dict) -> dict:
             sh["focus"] = focus_thing
         shots.append(sh)
 
-    cast_out = apply_wardrobe_and_gender_locks({k: dict(v) for k, v in cast_universe.items()}, {})
-    cast_out.update(BACKGROUND_CROWD_NPCS)
+    raw_cast = {k: dict(v) for k, v in cast_universe.items()}
+    raw_cast.update({k: dict(v) for k, v in BACKGROUND_CROWD_NPCS.items()})
+    cast_out = apply_wardrobe_and_gender_locks(raw_cast, {})
 
     return {
         "title": "What Jake Hid Inside Maya's Closet!",
@@ -560,8 +590,10 @@ def main(project_dir: str):
         if sh.get("subject") not in cast_names:
             sh["subject"] = "Maya" if "Maya" in cast_names else cast_names[0]
 
+        words_cnt = len(re.findall(r"\w+", sh.get("text", "")))
+        beat_dur = max(1.15, min(2.4, round(words_cnt / 4.2, 2)))
         sh["t0"] = round(t_cursor, 2)
-        t_cursor += 1.35
+        t_cursor += beat_dur
         sh["t1"] = round(t_cursor, 2)
 
         for act in sh.get("actors") or []:
