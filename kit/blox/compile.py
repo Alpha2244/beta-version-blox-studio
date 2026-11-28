@@ -16,6 +16,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
 import sets
 import chars
+import props
 import assets_loader
 
 argv = sys.argv[sys.argv.index('--') + 1:] if '--' in sys.argv else []
@@ -23,15 +24,20 @@ EP = os.path.abspath(argv[0])
 SPEC = json.load(open(os.path.join(EP, 'timed.json'), encoding='utf8'))
 WORDS = json.load(open(os.path.join(EP, 'words.json'), encoding='utf8'))
 FPS = 30
-N = int(math.ceil(SPEC['dur'] * FPS))
+N = max(1, int(math.ceil(SPEC['dur'] * FPS)))
 
 import places as _places
 _places.register_things(SPEC.get('things', {}))
 PLACES = SPEC.get('places', {})
 _used = []
 for _s in SPEC['shots']:
-    if _s['set'] not in _used:
-        _used.append(_s['set'])
+    st = _s.get('set') or 'Street'
+    _s['set'] = st
+    if st not in _used:
+        _used.append(st)
+if not _used:
+    _used = ['Street']
+
 ORIG = {nm: Vector((i * 400, 0, 0)) for i, nm in enumerate(_used)}
 OFF = Vector((0, 0, -2000))
 H = chars.HEAD_C[2] if hasattr(chars, 'HEAD_C') else 4.66
@@ -64,39 +70,56 @@ for nm, o in ORIG.items():
 
 # ---------- cast ----------
 CAST = {}
-for nm, spec in SPEC['cast'].items():
-    spec = dict(spec)
-    spec['skin'] = tuple(spec['skin'])
-    spec['shirt'] = tuple(spec['shirt'])
-    spec['pants'] = tuple(spec['pants'])
-    spec['shoes'] = tuple(spec.get('shoes', (0.9, 0.9, 0.9)))
-    spec['hair_color'] = tuple(spec.get('hair_color', (0.2, 0.1, 0.05)))
+for nm, raw_spec in SPEC.get('cast', {}).items():
+    spec = dict(raw_spec or {})
+    spec['skin'] = tuple(spec.get('skin') or (0.98, 0.78, 0.62))
+    spec['shirt'] = tuple(spec.get('shirt') or (0.20, 0.55, 0.95))
+    spec['pants'] = tuple(spec.get('pants') or (0.18, 0.24, 0.36))
+    spec['shoes'] = tuple(spec.get('shoes') or (0.92, 0.92, 0.94))
+    spec['hair_color'] = tuple(spec.get('hair_color') or (0.20, 0.12, 0.06))
     CAST[nm] = chars.make_char(nm, spec)
 
-# ---------- props (episode-level & shot-level via assets_loader) ----------
+# ---------- props (episode-level & shot-level via assets_loader + universal props fallback) ----------
 PROPC = bpy.data.collections.new('Props')
 sc.collection.children.link(PROPC)
 SPAWNED_PROPS = {}
+PROP_WINDOWS = {}
+
+
+def _spawn_safe_prop(pname, pspec, set_nm):
+    o = ORIG.get(set_nm, Vector((0, 0, 0)))
+    pspec = dict(pspec)
+    base_loc = tuple(pspec.get('loc') or (0.0, -1.2, 0.0))
+    if not pspec.get('hold') and not pspec.get('pedestal'):
+        pspec['loc'] = tuple(o + Vector(base_loc))
+    ob = None
+    try:
+        ob = assets_loader.spawn_prop(pname, pspec, chars=CAST, coll=PROPC)
+    except Exception:
+        ob = None
+    if ob is None:
+        kind = pspec.get('kind') or pspec.get('type') or pspec.get('asset') or pname
+        loc = pspec.get('loc') or tuple(o + Vector((0.0, -1.2, 0.0)))
+        rotz = float(pspec.get('rotz') or pspec.get('yaw') or 0.0)
+        scale = float(pspec.get('scale') or 1.0)
+        ob = props.spawn_prop(PROPC, kind, pname, loc, rotz=rotz, scale=scale)
+    if ob is not None and 'showAt' in pspec and 'hideAt' in pspec:
+        PROP_WINDOWS[ob] = (float(pspec['showAt']), float(pspec['hideAt']), Vector(ob.location))
+    return ob
+
 
 for p_idx, pspec in enumerate(SPEC.get('props', [])):
-    pspec = dict(pspec)
-    set_nm = pspec.get('set', _used[0] if _used else 'Street')
-    o = ORIG.get(set_nm, Vector((0, 0, 0)))
-    if 'loc' in pspec and not pspec.get('hold') and not pspec.get('pedestal'):
-        pspec['loc'] = tuple(o + Vector(pspec['loc']))
+    set_nm = pspec.get('set', _used[0])
     pname = pspec.get('name', f'ep_prop_{p_idx}')
-    SPAWNED_PROPS[pname] = assets_loader.spawn_prop(pname, pspec, chars=CAST, coll=PROPC)
+    SPAWNED_PROPS[pname] = _spawn_safe_prop(pname, pspec, set_nm)
 
 for s_idx, s in enumerate(SPEC['shots']):
-    o = ORIG[s['set']]
     for p_idx, pspec in enumerate(s.get('props', [])):
         pspec = dict(pspec)
         pspec.setdefault('showAt', s['t0'])
         pspec.setdefault('hideAt', s['t1'])
-        if 'loc' in pspec and not pspec.get('hold') and not pspec.get('pedestal'):
-            pspec['loc'] = tuple(o + Vector(pspec['loc']))
         pname = pspec.get('name', f's{s_idx}_prop_{p_idx}')
-        SPAWNED_PROPS[pname] = assets_loader.spawn_prop(pname, pspec, chars=CAST, coll=PROPC)
+        SPAWNED_PROPS[pname] = _spawn_safe_prop(pname, pspec, s['set'])
 
 
 # ---------- materials / fx objects ----------
@@ -253,14 +276,6 @@ def at_list(base, lst, tl):
     return cur
 
 
-def at_list2(base, lst, tl):
-    cur, prev, ts = base, None, None
-    for tt, v in (lst or []):
-        if tl >= tt and v != cur:
-            prev, cur, ts = cur, v, tt
-    return cur, prev, ts
-
-
 def fx_list(a):
     out = []
     for f in a.get('fx', []):
@@ -278,7 +293,8 @@ def shot_at(t):
 
 def actor_pos(s, a, tl):
     o = ORIG[s['set']]
-    p0 = Vector((a['at'][0], a['at'][1], 0))
+    at_xy = a.get('at') or (0.0, 0.0)
+    p0 = Vector((at_xy[0], at_xy[1], 0))
     yaw = a.get('yaw', 0)
     if a.get('walkTo'):
         p1 = Vector((a['walkTo'][0], a['walkTo'][1], 0))
@@ -292,13 +308,15 @@ def actor_pos(s, a, tl):
 
 
 def _resolve_stage_positions(s, tl):
-    """Ensure minimum 2.1-stud actor separation so characters never clip into each other."""
+    """Ensure minimum 2.2-stud actor separation so characters never clip into each other."""
     raw = {}
-    for a in s['actors']:
+    for a in s.get('actors', []):
+        if a['who'] not in CAST:
+            continue
         p, yaw, v = actor_pos(s, a, tl)
         raw[a['who']] = [p, yaw, v]
     names = list(raw.keys())
-    min_sep = 2.15
+    min_sep = 2.20
     for i in range(len(names)):
         for j in range(i + 1, len(names)):
             p1 = raw[names[i]][0]
@@ -347,7 +365,6 @@ def _enforce_anticrop(eye, tgt, lens, heads, full_body_guard):
         return eye
     view = (tgt - eye).normalized()
     dist = (tgt - eye).length
-    # Vertical half-FOV on 24mm vertical sensor
     tan_half_v = 12.0 / max(10.0, lens)
     margin = 0.84 if full_body_guard else 0.88
 
@@ -359,7 +376,6 @@ def _enforce_anticrop(eye, tgt, lens, heads, full_body_guard):
         for z_pt in z_checks:
             pt = Vector((hp.x, hp.y, z_pt))
             along = max(1.5, (pt - eye).dot(view))
-            # Vertical offset from camera view ray
             dz = abs((pt.z - eye.z) - view.z * along)
             needed = (dz / (tan_half_v * margin)) + (dist - along)
             if needed > req_dist:
@@ -403,9 +419,8 @@ def solve_cam(s, tl, heads):
 
     fw *= k
     fh = fw * 16.0 / 9.0
-    # 24mm vertical sensor => 9:16 horizontal half-width is 12 * 9 / 16 = 6.75mm
     d = (fw / 2.0) / (6.75 / lens)
-    cloud = s.get('aimUp') or any(f.split('@')[0] in CLOUDY for a in s['actors'] for f in a.get('fx', []))
+    cloud = s.get('aimUp') or any(f.split('@')[0] in CLOUDY for a in s.get('actors', []) for f in a.get('fx', []))
     r = math.radians(sdeg * side)
     dirv = Vector((F.x * math.cos(r) - F.y * math.sin(r), F.x * math.sin(r) + F.y * math.cos(r), 0))
     tgt = hp - Vector((0, 0, (0.5 - eyy) * fh))
@@ -421,7 +436,6 @@ def solve_cam(s, tl, heads):
     else:
         eye.z = hp.z + edz * k
 
-    # Keep scenery out of the lens: pull eye in front of any obstructing set wall/prop
     def blocked(e):
         vec = e - tgt
         dn = vec.normalized()
@@ -452,12 +466,10 @@ def solve_cam(s, tl, heads):
             h = blocked(eye)
             eye = tgt + (eye - tgt).normalized() * max(1.2 if kind == 'ins' else 3.0, h - 0.7)
 
-    # Enforce strict anti-crop framing before applying camera motion
     if kind not in ('ins', 'ecu'):
         sub_heads = {s.get('subject'): heads[s.get('subject')]} if (s.get('subject') in heads and kind != 'two') else heads
         eye = _enforce_anticrop(eye, tgt, lens, sub_heads, full_guard)
 
-    # Moves
     mv = s.get('move', mv0)
     x = tl / max(dur, 0.1)
     sc_ = 1.0
@@ -476,7 +488,7 @@ def solve_cam(s, tl, heads):
     eye = tgt + (eye - tgt) / sc_
 
     if s.get('flash') or mv == 'crash_in':
-        bolts = [float(f.split('@')[1]) for a in s['actors'] for f in a.get('fx', []) if f.startswith('bolt@')]
+        bolts = [float(f.split('@')[1]) for a in s.get('actors', []) for f in a.get('fx', []) if f.startswith('bolt@')]
         ti = s.get('impact', min(bolts) if bolts else 0.0) + 1 / FPS
         fi = int(round((tl - ti) * FPS))
         if 0 <= fi < 4:
@@ -502,7 +514,9 @@ SHOTS = SPEC['shots']
 CUTF = [int(round(s_['t0'] * FPS)) for s_ in SHOTS] + [N]
 BLINK = {nm: set() for nm in CAST}
 for si, s_ in enumerate(SHOTS):
-    for a in s_['actors']:
+    for a in s_.get('actors', []):
+        if a['who'] not in BLINK:
+            continue
         for tt, _ in a.get('faceAt', []):
             f0 = int(round((s_['t0'] + tt) * FPS)) - 1
             BLINK[a['who']].update(range(f0, f0 + 3))
@@ -542,7 +556,7 @@ def safe_pose(arm, f, anim, phase, amt=1.0):
 MISSING = set()
 ONE_SHOT = {
     'nod', 'headshake', 'flinch', 'slump', 'jump_joy', 'shock', 'surrender',
-    'head_tilt', 'what', 'facepalm', 'clap', 'grab', 'bend',
+    'head_tilt', 'what', 'facepalm', 'clap', 'grab', 'bend', 'highfive', 'hug',
 }
 cam_data.dof.use_dof = True
 try:
@@ -561,9 +575,12 @@ for f in range(N):
     dur = s['t1'] - s['t0']
     si = SHOTS.index(s)
     lf = f - CUTF[si]
-    inshot = {a['who']: a for a in s['actors']}
+    inshot = {a['who']: a for a in s.get('actors', []) if a['who'] in CAST}
     stage_pos = _resolve_stage_positions(s, tl)
     heads = {}
+
+    for ob, (t_show, t_hide, home_loc) in PROP_WINDOWS.items():
+        key_obj(ob, f, home_loc if (t_show <= t < t_hide) else OFF)
 
     for nm, arm in CAST.items():
         a = inshot.get(nm)
@@ -625,7 +642,7 @@ for f in range(N):
     bolt_on = None
     smoke_on = None
     crumbs_on = None
-    for a in s['actors']:
+    for a in s.get('actors', []):
         if a['who'] not in heads:
             continue
         hp, yaw, k = heads[a['who']]
@@ -781,7 +798,7 @@ step = 2
 for f in range(0, N, step):
     sc.frame_set(f)
     s = shot_at(f / FPS)
-    names = [a['who'] for a in s['actors']]
+    names = [a['who'] for a in s.get('actors', []) if a['who'] in CAST]
     boxes = {nm: [(o, aabb(o)) for o in chars.body_parts(CAST[nm]) if o.type == 'MESH' and max(o.dimensions) > 0.3] for nm in names}
     for i in range(len(names)):
         for j in range(i + 1, len(names)):
