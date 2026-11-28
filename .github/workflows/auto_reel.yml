@@ -12,9 +12,9 @@ on:
         required: false
         default: "kokoro"
       voice_tempo:
-        description: "Final narration pace multiplier (1.15 to 1.45; default 1.25)"
+        description: "Final narration pace multiplier (1.35 to 1.55; default 1.45 fast)"
         required: false
-        default: "1.25"
+        default: "1.5"
   schedule:
     # Runs daily at 14:00 UTC (7:00 PM PKT)
     - cron: "0 14 * * *"
@@ -98,66 +98,66 @@ jobs:
           echo "PROJ_DIR=$PROJ_DIR" >> $GITHUB_ENV
           python auto/generate_story.py "$PROJ_DIR"
 
-      - name: 6. Synthesize Per-Character Voice (vo.wav) & Word Timestamps (words.json)
+      - name: 6. Synthesize Fast Voice (vo.wav) & Word Timestamps (words.json)
         env:
           VOICE_ENGINE: ${{ github.event.inputs.voice_engine || 'kokoro' }}
-          VOICE_TEMPO: ${{ github.event.inputs.voice_tempo || '1.25' }}
+          VOICE_TEMPO: ${{ github.event.inputs.voice_tempo || '1.45' }}
           ELEVENLABS_API_KEY: ${{ secrets.ELEVENLABS_API_KEY }}
           ELEVENLABS_VOICE_ID: ${{ secrets.ELEVENLABS_VOICE_ID }}
-          VOICE_SPEED: "1.12"
+          VOICE_SPEED: "1.20"
         run: |
-          if [ "$VOICE_ENGINE" = "elevenlabs" ] && [ -n "$ELEVENLABS_API_KEY" ]; then
-            python auto/elevenlabs_voice.py "$PROJ_DIR"
-          else
-            python kit/blox/voice.py "$PROJ_DIR"
-          fi
+          python auto/elevenlabs_voice.py "$PROJ_DIR"
           test -s "$PROJ_DIR/vo.wav"
           test -s "$PROJ_DIR/words.json"
 
-      - name: 7. Compile 3D Scene & Configure Bright Vibrant Lighting
+      - name: 7. Compile 3D Scene & Configure Bright Fast Lighting
         run: |
           $BLENDER -b --factory-startup -P kit/blox/compile.py -- "$PROJ_DIR"
           test -s "$PROJ_DIR/scene.blend"
 
-          cat << 'EOF' > /tmp/bright_render_opt.py
+          cat << 'EOF' > /tmp/bright_fast_opt.py
           import bpy
 
+          # Bake vivid Principled BSDF colors onto material diffuse_color with a brightness lift
+          colored_count = 0
+          for mat in bpy.data.materials:
+              if mat.use_nodes and mat.node_tree:
+                  for node in mat.node_tree.nodes:
+                      if node.type == "BSDF_PRINCIPLED":
+                          base_in = node.inputs.get("Base Color")
+                          if base_in and not base_in.is_linked:
+                              col = list(base_in.default_value)
+                              mat.diffuse_color = (
+                                  min(1.0, col[0] * 1.18 + 0.05),
+                                  min(1.0, col[1] * 1.18 + 0.05),
+                                  min(1.0, col[2] * 1.18 + 0.05),
+                                  1.0,
+                              )
+                              colored_count += 1
+                              break
+
           s = bpy.context.scene
-          # Use EEVEE (or EEVEE_NEXT in Blender 5.x) so sky brightness, sun lights, shadows & glow work!
-          engines = [e.identifier for e in s.render.bl_rna.properties['render_engine'].enum_items] if hasattr(s.render, 'bl_rna') else []
-          if 'BLENDER_EEVEE_NEXT' in engines:
-              s.render.engine = 'BLENDER_EEVEE_NEXT'
-          elif 'BLENDER_EEVEE' in engines:
-              s.render.engine = 'BLENDER_EEVEE'
-
-          if hasattr(s, 'eevee'):
-              s.eevee.taa_render_samples = 12
-              if hasattr(s.eevee, 'use_gtao'):
-                  s.eevee.use_gtao = True
-
-          # Vibrant AgX / Standard color management with bright exposure
-          s.view_settings.view_transform = 'Standard'
-          s.view_settings.look = 'Medium High Contrast'
-          s.view_settings.exposure = 0.35
-          s.view_settings.gamma = 1.0
-
-          # Ensure a bright key sun light exists if none is present
-          has_sun = any(o.type == 'LIGHT' and o.data.type == 'SUN' for o in bpy.data.objects)
-          if not has_sun:
-              ld = bpy.data.lights.new(name="StudioKeySun", type='SUN')
-              ld.energy = 3.2
-              ld.color = (1.0, 0.97, 0.92)
-              lo = bpy.data.objects.new(name="StudioKeySun", object_data=ld)
-              bpy.context.collection.objects.link(lo)
-              lo.rotation_euler = (0.78, 0.25, 0.65)
-
+          # Fast CPU-compatible Workbench with bright studio lighting, shadows & sky backdrop
+          s.render.engine = "BLENDER_WORKBENCH"
           s.render.resolution_x = 1080
           s.render.resolution_y = 1920
-          s.render.resolution_percentage = 85
+          s.render.resolution_percentage = 75
+          s.display.shading.light = "STUDIO"
+          s.display.shading.studio_light = "Default"
+          s.display.shading.color_type = "MATERIAL"
+          s.display.shading.show_shadows = True
+          s.display.shading.shadow_intensity = 0.35
+          s.display.shading.show_cavity = True
+          s.display.shading.cavity_type = "BOTH"
+          s.display.shading.background_type = "VIEWPORT"
+          s.display.shading.background_color = (0.58, 0.75, 0.95)
+
+          s.view_settings.view_transform = "Standard"
+          s.view_settings.exposure = 0.45
           bpy.ops.wm.save_mainfile()
-          print(f"[Lighting] Configured {s.render.engine} @ 85% 1080x1920 with bright key lighting & exposure +0.35")
+          print(f"[Lighting] Configured bright Workbench on {colored_count} materials @ 75% 1080x1920")
           EOF
-          $BLENDER -b "$PROJ_DIR/scene.blend" --python /tmp/bright_render_opt.py
+          $BLENDER -b "$PROJ_DIR/scene.blend" --python /tmp/bright_fast_opt.py
 
       - name: 8. Render All Frames Safely (Live Frame Counter + Auto-Recovery)
         run: |
@@ -170,14 +170,14 @@ jobs:
           frames_dir = os.path.join(ep, "frames")
           os.makedirs(frames_dir, exist_ok=True)
 
-          print(f"[Render] Rendering {total} frames ({dur:.2f}s @ 30fps) with 2 parallel workers...", flush=True)
+          print(f"[Render] Rendering {total} frames ({dur:.2f}s @ 30fps) with 2 Workbench workers...", flush=True)
 
           def run_pass(cmd, label):
               proc = subprocess.Popen(cmd)
               start_t = time.time()
               last_count = sum(1 for f in os.listdir(frames_dir) if f.endswith(".jpg"))
               last_progress_t = start_t
-              STALL_LIMIT_SEC = 300
+              STALL_LIMIT_SEC = 240
 
               while proc.poll() is None:
                   time.sleep(20)
